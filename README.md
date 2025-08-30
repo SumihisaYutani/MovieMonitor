@@ -5,10 +5,12 @@ Windows PC内の動画ファイルを効率的に検索・整理するスタン�
 ## 🚀 特徴
 
 - **動画ファイル自動検索**: MP4、AVI、MKV、TS形式に対応
-- **サムネイル自動生成**: 動画の中間地点からサムネイル作成
-- **高速検索**: ファイル名、サイズ、再生時間による絞り込み
-- **ファイル操作**: 再生、移動、削除機能
-- **ポータブル**: 単一exeファイルで動作、インストール不要
+- **サムネイル自動生成**: 動画の中間地点からサムネイル作成（PNG形式）
+- **高速検索・データベース最適化**: インデックス付きLiteDBによる高速検索
+- **カスタムアイコン**: 映画フィルムモチーフのオリジナルアイコン
+- **レスポンシブUI**: サムネイルサイズ可変（100-600px）、タグ形式の情報表示
+- **ファイル操作**: 再生、削除機能
+- **ポータブル**: 単一exeファイルで動作、インストール不要（164MB）
 
 ## 📋 システム要件
 
@@ -26,11 +28,12 @@ Windows PC内の動画ファイルを効率的に検索・整理するスタン�
 ### 技術スタック
 
 - **フレームワーク**: WPF + .NET 8
-- **データベース**: LiteDB (軽量NoSQL)
-- **動画処理**: FFMpegCore
-- **ログ**: Serilog
-- **MVVM**: CommunityToolkit.Mvvm
-- **UI**: WPF + Material Design風カスタムスタイル
+- **データベース**: LiteDB (軽量NoSQL) - インデックス最適化済み
+- **動画処理**: FFMpegCore (PNG サムネイル生成)
+- **ログ**: Serilog (ファイル・行番号付きログ)
+- **MVVM**: CommunityToolkit.Mvvm + カスタムRelayCommand
+- **UI**: Material Design風カスタムスタイル + レスポンシブレイアウト
+- **コンバーター**: カスタム値変換器（サムネイルサイズ連動）
 
 ## 📁 プロジェクト構造
 
@@ -56,11 +59,19 @@ MovieMonitor/
 │   │   ├── IThumbnailService.cs      # サムネイルサービス
 │   │   └── ThumbnailService.cs
 │   ├── ViewModels/               # MVVM ViewModels
-│   │   └── MainViewModel.cs      # メインViewModel
+│   │   ├── MainViewModel.cs      # メインViewModel
+│   │   └── SettingsViewModel.cs  # 設定ViewModel
+│   ├── Views/                    # ビュー
+│   │   └── SettingsWindow.xaml   # 設定ウィンドウ
 │   ├── Converters/               # 値コンバーター
-│   │   └── BooleanToVisibilityConverter.cs
+│   │   ├── BooleanToVisibilityConverter.cs
+│   │   └── ThumbnailSizeConverters.cs  # サムネイルサイズ変換
+│   ├── Extensions/               # 拡張メソッド
+│   │   └── SerilogExtensions.cs  # ログ拡張
 │   └── Resources/                # リソースファイル
-│       └── Styles.xaml           # UIスタイル
+│       ├── Styles.xaml           # UIスタイル (Material Design)
+│       └── Icons/                # アプリケーションアイコン
+│           └── app-icon.ico
 ├── docs/                         # ドキュメント
 │   ├── 要件定義書.md
 │   ├── 基本設計書.md
@@ -90,8 +101,8 @@ dotnet run
 # リリースビルド
 dotnet build -c Release
 
-# Single File Executable作成
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+# Single File Executable作成（アイコン付き）
+dotnet publish -c Release --self-contained -r win-x64 -p:PublishSingleFile=true -p:DebugType=None
 ```
 
 ## 🗃️ 実行時ファイル配置
@@ -148,31 +159,41 @@ MovieMonitor.exe
   "FFmpegPath": "C:\\ffmpeg\\bin",
   "Theme": "Light",
   "AutoScan": false,
+  "AutoScanInterval": 60,
+  "DefaultPlayer": "",
   "SupportedFormats": ["Mp4", "Avi", "Mkv", "Ts"],
   "WindowWidth": 1200,
-  "WindowHeight": 800
+  "WindowHeight": 800,
+  "WindowLeft": 100,
+  "WindowTop": 100,
+  "WindowMaximized": false
 }
 ```
 
 ## 📊 パフォーマンス
 
 - **スキャン速度**: 約1000ファイル/分 (SSD環境)
-- **メモリ使用量**: 最大512MB
+- **検索速度**: インデックス使用により数ミリ秒で結果表示
+- **メモリ使用量**: 最大512MB (1000件表示時)
 - **データベースサイズ**: 動画1000件で約10MB
-- **サムネイルサイズ**: 1件あたり約50KB
+- **サムネイルサイズ**: PNG形式、1件あたり約50KB
+- **実行ファイルサイズ**: 164MB (全依存関係内包)
 
 ## ✅ 実装状況
 
 ### 完了済み機能
-- ✅ **基本UI**: Material Design風のモダンなインターフェース
-- ✅ **動画スキャン**: 指定ディレクトリの再帰的検索
-- ✅ **サムネイル生成**: FFmpeg使用による自動サムネイル作成（PNG形式）
-- ✅ **データベース**: LiteDBによる動画ファイル情報の永続化
-- ✅ **再生機能**: システムデフォルトプレーヤーでの動画再生
-- ✅ **検索・フィルタ**: ファイル名による部分一致検索
-- ✅ **ログシステム**: Serilogによる詳細なログ記録
-- ✅ **設定管理**: JSON形式での設定ファイル管理
-- ✅ **ファイル操作**: ごみ箱への削除機能
+- ✅ **Material Design UI**: モダンなカードベースのインターフェース
+- ✅ **レスポンシブレイアウト**: サムネイルサイズ100-600px可変対応
+- ✅ **動画スキャン**: 指定ディレクトリの再帰的検索・重複起動防止
+- ✅ **サムネイル生成**: FFmpeg使用による自動PNG生成（中間フレーム）
+- ✅ **高速データベース**: LiteDB・複合インデックス・クエリ最適化
+- ✅ **リアルタイム検索**: インデックス利用による高速検索
+- ✅ **再生機能**: システムデフォルト/カスタムプレーヤー対応
+- ✅ **設定システム**: GUI設定画面・JSON永続化・リアルタイム反映
+- ✅ **ログシステム**: Serilog・ファイル名行番号付きログ
+- ✅ **ファイル操作**: ごみ箱削除・安全な操作
+- ✅ **カスタムアイコン**: 映画フィルムモチーフ・単一実行ファイル
+- ✅ **エラーハンドリング**: 包括的例外処理・ユーザーフレンドリー
 
 ### 実装予定機能
 - 📋 **ファイル移動**: 指定フォルダへのファイル移動

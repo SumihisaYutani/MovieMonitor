@@ -24,30 +24,62 @@ public class DatabaseService : IDatabaseService, IDisposable
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            await Task.Run(() =>
-            {
-                _database = new LiteDatabase(_paths.DatabasePath);
-                
-                // インデックス作成
-                var videoFiles = _database.GetCollection<VideoFile>("video_files");
-                videoFiles.EnsureIndex(x => x.FilePath, unique: true);
-                videoFiles.EnsureIndex(x => x.FileName);
-                videoFiles.EnsureIndex(x => x.FileSize);
-                videoFiles.EnsureIndex(x => x.Duration);
-                videoFiles.EnsureIndex(x => x.ScanDate);
-                videoFiles.EnsureIndex(x => x.IsDeleted);
+        const int maxRetries = 3;
+        const int delayMilliseconds = 1000;
 
-                _logger.LogInformation("Database initialized at {DatabasePath}", _paths.DatabasePath);
-                Log.Logger.LogInfoWithLocation($"Database initialized at {_paths.DatabasePath}");
-            });
-        }
-        catch (Exception ex)
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            _logger.LogError(ex, "Failed to initialize database");
-            Log.Logger.LogErrorWithLocation(ex, "Failed to initialize database");
-            throw;
+            try
+            {
+                await Task.Run(() =>
+                {
+                    // データベースファイルが他のプロセスで使用中の場合を考慮して接続文字列を設定
+                    var connectionString = $"Filename={_paths.DatabasePath};Connection=shared";
+                    _database = new LiteDatabase(connectionString);
+                    
+                    // インデックス作成
+                    var videoFiles = _database.GetCollection<VideoFile>("video_files");
+                    videoFiles.EnsureIndex(x => x.FilePath, unique: true);
+                    videoFiles.EnsureIndex(x => x.FileName);
+                    videoFiles.EnsureIndex(x => x.FileSize);
+                    videoFiles.EnsureIndex(x => x.Duration);
+                    videoFiles.EnsureIndex(x => x.ScanDate);
+                    videoFiles.EnsureIndex(x => x.IsDeleted);
+                    
+                    // パフォーマンス向上のための複合インデックス
+                    videoFiles.EnsureIndex("IsDeleted_ScanDate", x => new { x.IsDeleted, x.ScanDate });
+                    videoFiles.EnsureIndex("IsDeleted_FileName", x => new { x.IsDeleted, x.FileName });
+                    videoFiles.EnsureIndex("IsDeleted_FileSize", x => new { x.IsDeleted, x.FileSize });
+                    videoFiles.EnsureIndex("IsDeleted_Duration", x => new { x.IsDeleted, x.Duration });
+
+                    _logger.LogInformation("Database initialized at {DatabasePath}", _paths.DatabasePath);
+                    Log.Logger.LogInfoWithLocation($"Database initialized at {_paths.DatabasePath}");
+                });
+
+                // 成功したらループを抜ける
+                return;
+            }
+            catch (IOException ioEx) when (ioEx.Message.Contains("being used by another process"))
+            {
+                _logger.LogWarning("Database file is locked, attempt {Attempt}/{MaxRetries}", attempt, maxRetries);
+                Log.Logger.LogWarningWithLocation($"Database file is locked, attempt {attempt}/{maxRetries}: {ioEx.Message}");
+
+                if (attempt == maxRetries)
+                {
+                    _logger.LogError(ioEx, "Failed to initialize database after {MaxRetries} attempts", maxRetries);
+                    Log.Logger.LogErrorWithLocation(ioEx, $"Failed to initialize database after {maxRetries} attempts");
+                    throw new InvalidOperationException($"データベースファイルが使用中です。他のアプリケーションインスタンスが実行されていないか確認してください。", ioEx);
+                }
+
+                // 次の試行前に待機
+                await Task.Delay(delayMilliseconds * attempt);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize database on attempt {Attempt}", attempt);
+                Log.Logger.LogErrorWithLocation(ex, $"Failed to initialize database on attempt {attempt}");
+                throw;
+            }
         }
     }
 
@@ -105,16 +137,27 @@ public class DatabaseService : IDatabaseService, IDisposable
         {
             return await Task.Run(() =>
             {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 var collection = _database!.GetCollection<VideoFile>("video_files");
+                
+                // 基本クエリ: IsDeletedインデックスを利用
                 var query = collection.Query().Where(x => !x.IsDeleted);
 
-                // ファイル名検索
+                // 形式フィルタを先に適用（メモリ使用量削減）
+                if (filter.Formats.Count > 0)
+                {
+                    var extensions = filter.Formats.Select(f => f.GetExtension()).ToHashSet();
+                    // ファイルパスの拡張子で事前フィルタ
+                    query = query.Where(x => extensions.Any(ext => x.FilePath.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
+                }
+
+                // ファイル名検索（インデックス利用）
                 if (!string.IsNullOrEmpty(filter.Query))
                 {
                     query = query.Where(x => x.FileName.Contains(filter.Query));
                 }
 
-                // ファイルサイズフィルタ
+                // ファイルサイズフィルタ（インデックス利用）
                 if (filter.MinSize.HasValue)
                 {
                     query = query.Where(x => x.FileSize >= filter.MinSize.Value);
@@ -124,7 +167,7 @@ public class DatabaseService : IDatabaseService, IDisposable
                     query = query.Where(x => x.FileSize <= filter.MaxSize.Value);
                 }
 
-                // 再生時間フィルタ
+                // 再生時間フィルタ（インデックス利用）
                 if (filter.MinDuration.HasValue)
                 {
                     query = query.Where(x => x.Duration >= filter.MinDuration.Value);
@@ -134,12 +177,12 @@ public class DatabaseService : IDatabaseService, IDisposable
                     query = query.Where(x => x.Duration <= filter.MaxDuration.Value);
                 }
 
-                // ソート
+                // ソート（複合インデックス利用）
                 query = query.OrderByDescending(x => x.ScanDate);
 
                 var results = query.ToList();
 
-                // 件数制限（LiteDBの制限後に適用）
+                // ページネーション処理（メモリ上で実行）
                 if (filter.Offset.HasValue)
                 {
                     results = results.Skip(filter.Offset.Value).ToList();
@@ -148,17 +191,9 @@ public class DatabaseService : IDatabaseService, IDisposable
                 {
                     results = results.Take(filter.Limit.Value).ToList();
                 }
-
-                // 形式フィルタ（LiteDB側でできないため後処理）
-                if (filter.Formats.Count > 0)
-                {
-                    var extensions = filter.Formats.Select(f => f.GetExtension()).ToHashSet();
-                    results = results.Where(x =>
-                    {
-                        var ext = Path.GetExtension(x.FilePath).ToLowerInvariant();
-                        return extensions.Contains(ext);
-                    }).ToList();
-                }
+                
+                sw.Stop();
+                _logger.LogDebug("Search completed in {ElapsedMs}ms, returned {Count} results", sw.ElapsedMilliseconds, results.Count);
 
                 return results;
             });
@@ -172,7 +207,8 @@ public class DatabaseService : IDatabaseService, IDisposable
 
     public async Task<List<VideoFile>> GetAllVideoFilesAsync()
     {
-        return await SearchVideoFilesAsync(new SearchFilter());
+        // 全件取得の場合は制限を設けて段階的読み込みを推奨
+        return await SearchVideoFilesAsync(new SearchFilter { Limit = 1000 });
     }
 
     public async Task<VideoFile?> GetVideoFileAsync(string id)

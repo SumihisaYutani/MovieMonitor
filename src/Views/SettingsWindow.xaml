@@ -1,0 +1,203 @@
+<Window x:Class="MovieMonitor.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:MovieMonitor.Models"
+        Title="設定" Height="650" Width="700"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource BackgroundBrush}">
+
+    <Window.Resources>
+        <Style x:Key="GroupHeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,16,0,8"/>
+        </Style>
+
+        <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource OnSurfaceBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="SettingsTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Height" Value="32"/>
+        </Style>
+
+        <Style x:Key="SettingsButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Margin" Value="4,0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="MinWidth" Value="80"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- メインコンテンツ -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Margin="24">
+            <StackPanel>
+                
+                <!-- スキャンディレクトリ設定 -->
+                <TextBlock Text="📁 スキャン対象フォルダ" Style="{StaticResource GroupHeaderTextStyle}"/>
+                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,0,0,16"
+                        Effect="{StaticResource ElevationShadow1}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,8">
+                            <Button DockPanel.Dock="Right" Content="追加" 
+                                    Command="{Binding AddDirectoryCommand}"
+                                    Style="{StaticResource SettingsButtonStyle}"/>
+                            <TextBlock Text="動画ファイルをスキャンするフォルダを設定してください。" 
+                                       Style="{StaticResource LabelTextStyle}"/>
+                        </DockPanel>
+                        
+                        <ListBox ItemsSource="{Binding ScanDirectories}" 
+                                 Height="120" Background="Transparent" BorderThickness="1"
+                                 BorderBrush="{StaticResource OnSurfaceLightBrush}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"
+                                                   Margin="4"/>
+                                        <Button Grid.Column="1" Content="削除" 
+                                                Command="{Binding DataContext.RemoveDirectoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource SettingsButtonStyle}"
+                                                Background="{StaticResource ErrorBrush}"
+                                                Foreground="White"
+                                                FontSize="10" MinWidth="50" Height="24"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+                </Border>
+
+                <!-- FFmpeg設定 -->
+                <TextBlock Text="🎬 FFmpeg設定" Style="{StaticResource GroupHeaderTextStyle}"/>
+                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,0,0,16"
+                        Effect="{StaticResource ElevationShadow1}">
+                    <StackPanel>
+                        <TextBlock Text="FFmpegのbinフォルダパス:" Style="{StaticResource LabelTextStyle}"/>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="参照" 
+                                    Command="{Binding BrowseFFmpegCommand}"
+                                    Style="{StaticResource SettingsButtonStyle}"/>
+                            <TextBox Text="{Binding FFmpegPath, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SettingsTextBoxStyle}"/>
+                        </DockPanel>
+                        <TextBlock Text="※ サムネイル生成に必要です。通常は C:\ffmpeg\bin を指定します。"
+                                   FontSize="10" Foreground="{StaticResource OnSurfaceMediumBrush}" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 外観設定 -->
+                <TextBlock Text="🎨 外観設定" Style="{StaticResource GroupHeaderTextStyle}"/>
+                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,0,0,16"
+                        Effect="{StaticResource ElevationShadow1}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="テーマ:" Style="{StaticResource LabelTextStyle}" Width="120"/>
+                            <ComboBox Grid.Row="0" Grid.Column="1" SelectedItem="{Binding Theme}" Margin="0,4">
+                                <ComboBox.ItemsSource>
+                                    <x:Array Type="models:AppTheme">
+                                        <models:AppTheme>Light</models:AppTheme>
+                                        <models:AppTheme>Dark</models:AppTheme>
+                                    </x:Array>
+                                </ComboBox.ItemsSource>
+                            </ComboBox>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="サムネイルサイズ:" Style="{StaticResource LabelTextStyle}"/>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+                                <Slider Value="{Binding ThumbnailSize}" Minimum="100" Maximum="600" Width="150"
+                                        VerticalAlignment="Center" TickFrequency="50" IsSnapToTickEnabled="True"/>
+                                <TextBlock Text="{Binding ThumbnailSize, StringFormat={}{0}px}" 
+                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                           Style="{StaticResource LabelTextStyle}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 動画再生設定 -->
+                <TextBlock Text="▶️ 動画再生設定" Style="{StaticResource GroupHeaderTextStyle}"/>
+                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,0,0,16"
+                        Effect="{StaticResource ElevationShadow1}">
+                    <StackPanel>
+                        <TextBlock Text="デフォルト動画プレーヤー:" Style="{StaticResource LabelTextStyle}"/>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="参照" 
+                                    Command="{Binding BrowsePlayerCommand}"
+                                    Style="{StaticResource SettingsButtonStyle}"/>
+                            <TextBox Text="{Binding DefaultPlayer, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SettingsTextBoxStyle}"/>
+                        </DockPanel>
+                        <TextBlock Text="※ 空の場合はシステムのデフォルトアプリケーションで開きます。"
+                                   FontSize="10" Foreground="{StaticResource OnSurfaceMediumBrush}" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 自動スキャン設定 -->
+                <TextBlock Text="🔄 自動スキャン設定" Style="{StaticResource GroupHeaderTextStyle}"/>
+                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,0,0,16"
+                        Effect="{StaticResource ElevationShadow1}">
+                    <StackPanel>
+                        <CheckBox IsChecked="{Binding AutoScan}" Content="自動スキャンを有効にする" 
+                                  Margin="0,0,0,8" FontSize="12"/>
+                        
+                        <Grid IsEnabled="{Binding AutoScan}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Column="0" Text="スキャン間隔:" Style="{StaticResource LabelTextStyle}" Width="80"/>
+                            <Slider Grid.Column="1" Value="{Binding AutoScanInterval}" 
+                                    Minimum="5" Maximum="180" Width="150"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="{Binding AutoScanInterval, StringFormat={}{0}分}" 
+                                       VerticalAlignment="Center" Margin="8,0,0,0"
+                                       Style="{StaticResource LabelTextStyle}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ボタン -->
+        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" 
+                BorderBrush="{StaticResource OnSurfaceLightBrush}" BorderThickness="0,1,0,0"
+                Padding="24,16">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="キャンセル" Command="{Binding CancelCommand}" 
+                        Style="{StaticResource SettingsButtonStyle}" Margin="0,0,8,0"/>
+                <Button Content="保存" Command="{Binding SaveCommand}"
+                        Background="{StaticResource PrimaryBrush}" 
+                        Foreground="White"
+                        Style="{StaticResource SettingsButtonStyle}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

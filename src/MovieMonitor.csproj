@@ -5,6 +5,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyTitle>MovieMonitor</AssemblyTitle>
     <Product>MovieMonitor</Product>
     <Description>A Windows application for managing video files with thumbnail preview</Description>
@@ -12,6 +13,9 @@
     <Copyright>Copyright © 2024 MovieMonitor</Copyright>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
+    
+    <!-- Application Icon -->
+    <ApplicationIcon>Resources\Icons\app-icon.ico</ApplicationIcon>
     
     <!-- Build Configuration -->
     <OutputPath>..\build\$(Configuration)\</OutputPath>
@@ -44,7 +48,8 @@
 
   <ItemGroup>
     <Resource Include="Resources\Styles.xaml" />
-    <None Include="Resources\**" CopyToOutputDirectory="PreserveNewest" Exclude="Resources\Styles.xaml" />
+    <None Include="Resources\**" CopyToOutputDirectory="PreserveNewest" Exclude="Resources\Styles.xaml;Resources\Icons\app-icon.ico" />
+    <None Include="Resources\Icons\app-icon.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -54,5 +59,6 @@
     <Folder Include="Models\" />
     <Folder Include="Resources\" />
   </ItemGroup>
+
 
 </Project>

@@ -29,6 +29,9 @@
     <SolidColorBrush x:Key="OnSurfaceMediumBrush" Color="{StaticResource OnSurfaceMediumColor}"/>
     <SolidColorBrush x:Key="OnSurfaceLightBrush" Color="{StaticResource OnSurfaceLightColor}"/>
     <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource OnPrimaryColor}"/>
+    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}"/>
 
     <!-- シャドウエフェクト -->
     <DropShadowEffect x:Key="ElevationShadow1" Color="#40000000" Direction="270" ShadowDepth="1" BlurRadius="3" Opacity="0.3"/>

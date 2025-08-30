@@ -47,6 +47,16 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private WindowState _windowState = WindowState.Normal;
 
+    /// <summary>
+    /// サムネイルサイズ（設定から取得）
+    /// </summary>
+    public int ThumbnailSize => Settings.ThumbnailSize;
+
+    partial void OnSettingsChanged(AppSettings value)
+    {
+        OnPropertyChanged(nameof(ThumbnailSize));
+    }
+
     private CancellationTokenSource? _scanCancellationTokenSource;
 
     public MainViewModel(
@@ -102,15 +112,8 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            var videoFiles = await _databaseService.GetAllVideoFilesAsync();
-            
-            Videos.Clear();
-            foreach (var video in videoFiles)
-            {
-                Videos.Add(video);
-            }
-
-            ApplySearchFilter();
+            // 初期ロード時は最新1000件のみ
+            await PerformSearchAsync();
         }
         catch (Exception ex)
         {
@@ -120,20 +123,37 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSearchQueryChanged(string value)
     {
-        ApplySearchFilter();
+        // 検索クエリ変更時はデータベースから直接検索
+        _ = PerformSearchAsync();
     }
 
-    private void ApplySearchFilter()
+    private async Task PerformSearchAsync()
     {
-        FilteredVideos.Clear();
-
-        var filtered = string.IsNullOrWhiteSpace(SearchQuery)
-            ? Videos
-            : Videos.Where(v => v.FileName.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase));
-
-        foreach (var video in filtered.OrderByDescending(v => v.ScanDate))
+        try
         {
-            FilteredVideos.Add(video);
+            var searchFilter = new SearchFilter
+            {
+                Query = string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery,
+                Limit = 1000 // 一度に表示する最大件数
+            };
+
+            var results = await _databaseService.SearchVideoFilesAsync(searchFilter);
+            
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                FilteredVideos.Clear();
+                Videos.Clear();
+                
+                foreach (var video in results)
+                {
+                    Videos.Add(video);
+                    FilteredVideos.Add(video);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to perform search");
         }
     }
 
@@ -335,7 +355,26 @@ public partial class MainViewModel : ObservableObject
     
     private void ShowSettings()
     {
-        ShowInfoMessage("機能準備中", "設定画面は現在実装中です。");
+        try
+        {
+            var settingsWindow = new Views.SettingsWindow
+            {
+                Owner = Application.Current.MainWindow
+            };
+            settingsWindow.ShowDialog();
+
+            // 設定が変更された可能性があるので、設定を再読み込み
+            _ = Task.Run(async () => 
+            {
+                Settings = await _configurationService.GetSettingsAsync();
+                OnPropertyChanged(nameof(Settings));
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open settings window");
+            ShowErrorMessage("エラー", "設定画面を開けませんでした。");
+        }
     }
 
     public ICommand ShowAboutCommand => new RelayCommand(ShowAbout);

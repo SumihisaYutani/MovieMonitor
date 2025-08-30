@@ -5,6 +5,7 @@ using MovieMonitor.Models;
 using MovieMonitor.Services;
 using MovieMonitor.ViewModels;
 using Serilog;
+using System.Diagnostics;
 using System.Windows;
 
 namespace MovieMonitor;
@@ -15,11 +16,21 @@ namespace MovieMonitor;
 public partial class App : Application
 {
     private IHost? _host;
+    
+    public IServiceProvider ServiceProvider => _host?.Services ?? throw new InvalidOperationException("Host is not initialized");
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         try
         {
+            // 重複起動チェック
+            if (IsAnotherInstanceRunning())
+            {
+                MessageBox.Show("MovieMonitorは既に起動しています。", "重複起動", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
+
             // 未処理例外のハンドリングを設定
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
             DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -96,11 +107,29 @@ public partial class App : Application
 
                 // ViewModels
                 services.AddTransient<MainViewModel>();
+                services.AddTransient<SettingsViewModel>();
 
                 // Views
                 services.AddTransient<MainWindow>();
             })
             .Build();
+    }
+
+    private bool IsAnotherInstanceRunning()
+    {
+        try
+        {
+            var currentProcess = Process.GetCurrentProcess();
+            var processes = Process.GetProcessesByName(currentProcess.ProcessName);
+            
+            // 現在のプロセス以外に同名のプロセスがあるかチェック
+            return processes.Length > 1;
+        }
+        catch
+        {
+            // プロセス情報取得に失敗した場合は、重複チェックをスキップ
+            return false;
+        }
     }
 
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

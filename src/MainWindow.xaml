@@ -17,6 +17,9 @@
 
     <Window.Resources>
         <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <converters:ThumbnailSizeToWidthConverter x:Key="ThumbnailSizeToWidthConverter" />
+        <converters:ThumbnailSizeToHeightConverter x:Key="ThumbnailSizeToHeightConverter" />
+        <converters:ThumbnailSizeToImageHeightConverter x:Key="ThumbnailSizeToImageHeightConverter" />
     </Window.Resources>
 
     <Grid>
@@ -102,8 +105,9 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Style="{StaticResource CardStyle}" Margin="12" 
-                                    Width="280" Height="320" Cursor="Hand">
+                            <Border Style="{StaticResource CardStyle}" Margin="12" Cursor="Hand"
+                                    Width="{Binding DataContext.ThumbnailSize, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ThumbnailSizeToWidthConverter}}"
+                                    Height="{Binding DataContext.ThumbnailSize, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ThumbnailSizeToHeightConverter}}">
                                 <Border.Triggers>
                                     <EventTrigger RoutedEvent="MouseEnter">
                                         <BeginStoryboard>
@@ -151,7 +155,7 @@
                                 
                                 <Grid>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="180" />
+                                        <RowDefinition Height="{Binding DataContext.ThumbnailSize, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ThumbnailSizeToImageHeightConverter}}" />
                                         <RowDefinition Height="*" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
@@ -236,20 +240,25 @@
                                                    TextTrimming="CharacterEllipsis" LineHeight="20"
                                                    Foreground="{StaticResource OnSurfaceBrush}"
                                                    ToolTip="{Binding FileName}" Margin="0,0,0,8" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        
+                                        <!-- タグ形式の情報表示 -->
+                                        <WrapPanel Margin="0,0,0,6">
                                             <Border Background="{StaticResource PrimaryLightBrush}" CornerRadius="8" 
-                                                    Padding="6,2" Margin="0,0,6,0">
+                                                    Padding="6,2" Margin="0,0,4,2">
                                                 <TextBlock Text="{Binding Resolution}" FontSize="10" FontWeight="Medium"
                                                            Foreground="{StaticResource PrimaryDarkBrush}" />
                                             </Border>
                                             <Border Background="{StaticResource OnSurfaceLightBrush}" CornerRadius="8" 
-                                                    Padding="6,2">
+                                                    Padding="6,2" Margin="0,0,4,2">
                                                 <TextBlock Text="{Binding FormattedDuration}" FontSize="10"
                                                            Foreground="{StaticResource OnSurfaceMediumBrush}" />
                                             </Border>
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding FormattedFileSize}" FontSize="12"
-                                                   Foreground="{StaticResource OnSurfaceMediumBrush}" />
+                                            <Border Background="{StaticResource OnSurfaceLightBrush}" CornerRadius="8" 
+                                                    Padding="6,2" Margin="0,0,4,2">
+                                                <TextBlock Text="{Binding FormattedFileSize}" FontSize="10"
+                                                           Foreground="{StaticResource OnSurfaceMediumBrush}" />
+                                            </Border>
+                                        </WrapPanel>
                                     </StackPanel>
 
                                     <!-- アクションボタン -->
