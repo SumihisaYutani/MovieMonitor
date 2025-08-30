@@ -178,7 +178,7 @@ public class DatabaseService : IDatabaseService, IDisposable
                 }
 
                 // ソート（複合インデックス利用）
-                query = query.OrderByDescending(x => x.ScanDate);
+                query = ApplySorting(query, filter.SortBy, filter.SortDirection);
 
                 var results = query.ToList();
 
@@ -376,6 +376,45 @@ public class DatabaseService : IDatabaseService, IDisposable
             _logger.LogError(ex, "Failed to optimize database");
             throw;
         }
+    }
+
+    /// <summary>
+    /// クエリにソート条件を適用
+    /// </summary>
+    private ILiteQueryable<VideoFile> ApplySorting(ILiteQueryable<VideoFile> query, SortCriteria sortBy, SortDirection direction)
+    {
+        return sortBy switch
+        {
+            SortCriteria.FileName => direction == SortDirection.Ascending 
+                ? query.OrderBy(x => x.FileName) 
+                : query.OrderByDescending(x => x.FileName),
+                
+            SortCriteria.FileSize => direction == SortDirection.Ascending 
+                ? query.OrderBy(x => x.FileSize) 
+                : query.OrderByDescending(x => x.FileSize),
+                
+            SortCriteria.Duration => direction == SortDirection.Ascending 
+                ? query.OrderBy(x => x.Duration) 
+                : query.OrderByDescending(x => x.Duration),
+                
+            SortCriteria.Resolution => direction == SortDirection.Ascending 
+                ? query.OrderBy(x => x.Width * x.Height) 
+                : query.OrderByDescending(x => x.Width * x.Height),
+                
+            SortCriteria.ScanDate => direction == SortDirection.Ascending 
+                ? query.OrderBy(x => x.ScanDate) 
+                : query.OrderByDescending(x => x.ScanDate),
+                
+            SortCriteria.CreatedAt => direction == SortDirection.Ascending 
+                ? query.OrderBy(x => x.CreatedAt) 
+                : query.OrderByDescending(x => x.CreatedAt),
+                
+            SortCriteria.ModifiedAt => direction == SortDirection.Ascending 
+                ? query.OrderBy(x => x.ModifiedAt) 
+                : query.OrderByDescending(x => x.ModifiedAt),
+                
+            _ => query.OrderByDescending(x => x.ScanDate) // デフォルト
+        };
     }
 
     private void EnsureDatabase()

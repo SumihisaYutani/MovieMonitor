@@ -16,6 +16,7 @@ namespace MovieMonitor;
 public partial class App : Application
 {
     private IHost? _host;
+    private ConsoleLogService? _consoleLogService;
     
     public IServiceProvider ServiceProvider => _host?.Services ?? throw new InvalidOperationException("Host is not initialized");
 
@@ -39,6 +40,14 @@ public partial class App : Application
             var paths = new DirectoryPaths();
             paths.EnsureDirectoriesExist();
 
+            // コンソールログサービス開始（標準出力・標準エラー出力をファイルに記録）
+            _consoleLogService = new ConsoleLogService(paths);
+            
+            // コンソールログテスト
+            Console.WriteLine("MovieMonitor アプリケーション開始");
+            Console.WriteLine($"開始時刻: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+            Console.WriteLine($"作業ディレクトリ: {Environment.CurrentDirectory}");
+            
             // ログ設定
             ConfigureLogging(paths.LogDirectory);
 
@@ -131,6 +140,9 @@ public partial class App : Application
         }
         finally
         {
+            // コンソールログサービスを終了
+            _consoleLogService?.Dispose();
+            
             Log.CloseAndFlush();
         }
 
@@ -150,6 +162,8 @@ public partial class App : Application
                 services.AddSingleton<IDatabaseService, DatabaseService>();
                 services.AddSingleton<IVideoScanService, VideoScanService>();
                 services.AddSingleton<IThumbnailService, ThumbnailService>();
+                services.AddSingleton<IConsoleLogService>(provider => 
+                    ((App)Current)._consoleLogService!);
 
                 // ViewModels  
                 services.AddSingleton<MainViewModel>();

@@ -51,7 +51,17 @@ public class SearchFilter
     public int? Offset { get; set; }
 
     /// <summary>
-    /// 空のフィルターかどうか
+    /// ソート条件
+    /// </summary>
+    public SortCriteria SortBy { get; set; } = SortCriteria.ScanDate;
+
+    /// <summary>
+    /// ソート順序
+    /// </summary>
+    public SortDirection SortDirection { get; set; } = SortDirection.Descending;
+
+    /// <summary>
+    /// 空のフィルターかどうか（ソート条件は除く）
     /// </summary>
     public bool IsEmpty =>
         string.IsNullOrEmpty(Query) &&
@@ -61,6 +71,95 @@ public class SearchFilter
         MaxSize == null &&
         MinDuration == null &&
         MaxDuration == null;
+}
+
+/// <summary>
+/// ソート条件
+/// </summary>
+public enum SortCriteria
+{
+    FileName,       // ファイル名
+    FileSize,       // ファイルサイズ
+    Duration,       // 再生時間
+    Resolution,     // 解像度（幅×高さ）
+    ScanDate,       // スキャン日時
+    CreatedAt,      // 作成日時
+    ModifiedAt      // 更新日時
+}
+
+/// <summary>
+/// ソート順序
+/// </summary>
+public enum SortDirection
+{
+    Ascending,      // 昇順
+    Descending      // 降順
+}
+
+/// <summary>
+/// ソート条件の拡張メソッド
+/// </summary>
+public static class SortCriteriaExtensions
+{
+    /// <summary>
+    /// ソート条件の表示名を取得
+    /// </summary>
+    public static string GetDisplayName(this SortCriteria criteria)
+    {
+        return criteria switch
+        {
+            SortCriteria.FileName => "ファイル名",
+            SortCriteria.FileSize => "ファイルサイズ",
+            SortCriteria.Duration => "再生時間",
+            SortCriteria.Resolution => "解像度",
+            SortCriteria.ScanDate => "スキャン日時",
+            SortCriteria.CreatedAt => "作成日時",
+            SortCriteria.ModifiedAt => "更新日時",
+            _ => throw new ArgumentOutOfRangeException(nameof(criteria))
+        };
+    }
+
+    /// <summary>
+    /// ソート順序の表示名を取得
+    /// </summary>
+    public static string GetDisplayName(this SortDirection direction)
+    {
+        return direction switch
+        {
+            SortDirection.Ascending => "昇順",
+            SortDirection.Descending => "降順",
+            _ => throw new ArgumentOutOfRangeException(nameof(direction))
+        };
+    }
+
+    /// <summary>
+    /// ソート順序のアイコンを取得
+    /// </summary>
+    public static string GetIcon(this SortDirection direction)
+    {
+        return direction switch
+        {
+            SortDirection.Ascending => "↑",
+            SortDirection.Descending => "↓",
+            _ => ""
+        };
+    }
+
+    /// <summary>
+    /// すべてのソート条件を取得
+    /// </summary>
+    public static readonly SortCriteriaItem[] AllCriteria = Enum.GetValues<SortCriteria>()
+        .Select(c => new SortCriteriaItem { Value = c, DisplayName = c.GetDisplayName() })
+        .ToArray();
+}
+
+/// <summary>
+/// ソート条件の表示用アイテム
+/// </summary>
+public class SortCriteriaItem
+{
+    public SortCriteria Value { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
 }
 
 /// <summary>

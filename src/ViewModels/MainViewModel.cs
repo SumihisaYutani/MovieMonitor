@@ -47,6 +47,24 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private WindowState _windowState = WindowState.Normal;
 
+    [ObservableProperty]
+    private SortCriteria _sortCriteria = SortCriteria.FileName;
+
+    [ObservableProperty]
+    private SortDirection _sortDirection = SortDirection.Ascending;
+
+    [ObservableProperty]
+    private long? _minFileSize;
+
+    [ObservableProperty]
+    private long? _maxFileSize;
+
+    [ObservableProperty]
+    private double? _minDuration;
+
+    [ObservableProperty]
+    private double? _maxDuration;
+
     /// <summary>
     /// サムネイルサイズ（設定から取得）
     /// </summary>
@@ -99,6 +117,20 @@ public partial class MainViewModel : ObservableObject
         _configurationService.SettingsChanged += OnSettingsChanged;
         System.Diagnostics.Debug.WriteLine("MainViewModel constructor: SettingsChanged event registered");
         
+        // プロパティ変更時のフィルタリング（SearchQueryは除外）
+        PropertyChanged += (sender, args) => 
+        {
+            if (args.PropertyName == nameof(SortCriteria) ||
+                args.PropertyName == nameof(SortDirection) ||
+                args.PropertyName == nameof(MinFileSize) ||
+                args.PropertyName == nameof(MaxFileSize) ||
+                args.PropertyName == nameof(MinDuration) ||
+                args.PropertyName == nameof(MaxDuration))
+            {
+                _ = Task.Run(async () => await ApplyFiltersAsync());
+            }
+        };
+
         // 初期化
         _ = InitializeAsync();
         System.Diagnostics.Debug.WriteLine("MainViewModel constructor: InitializeAsync called - CONSTRUCTOR COMPLETE");
@@ -162,17 +194,26 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSearchQueryChanged(string value)
     {
-        // 検索クエリ変更時はデータベースから直接検索
-        _ = PerformSearchAsync();
+        // 検索クエリ変更時は即座に実行せず、手動適用に変更
+        // 重い処理を避けるため、ApplySearchCommand実行時のみフィルタ適用
     }
 
-    private async Task PerformSearchAsync()
+    /// <summary>
+    /// フィルタ条件をすべて適用して動画リストを更新
+    /// </summary>
+    private async Task ApplyFiltersAsync()
     {
         try
         {
             var searchFilter = new SearchFilter
             {
                 Query = string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery,
+                MinSize = MinFileSize,
+                MaxSize = MaxFileSize,
+                MinDuration = MinDuration,
+                MaxDuration = MaxDuration,
+                SortBy = SortCriteria,
+                SortDirection = SortDirection,
                 Limit = 10000 // 一度に表示する最大件数
             };
 
@@ -192,8 +233,16 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to perform search");
+            _logger.LogError(ex, "Failed to apply filters");
         }
+    }
+
+    /// <summary>
+    /// 互換性のために残す（既存の呼び出し用）
+    /// </summary>
+    private async Task PerformSearchAsync()
+    {
+        await ApplyFiltersAsync();
     }
 
     private void OnScanProgressChanged(object? sender, ScanProgress progress)
@@ -448,10 +497,45 @@ public partial class MainViewModel : ObservableObject
     }
 
     public ICommand ClearSearchCommand => new RelayCommand(ClearSearch);
+
+    /// <summary>
+    /// 検索適用コマンド
+    /// </summary>
+    public ICommand ApplySearchCommand => new AsyncRelayCommand(ApplySearchAsync);
+    
+    /// <summary>
+    /// 検索を適用
+    /// </summary>
+    private async Task ApplySearchAsync()
+    {
+        await ApplyFiltersAsync();
+    }
     
     private void ClearSearch()
     {
         SearchQuery = "";
+        // 検索クリア時は即座にフィルタ適用
+        _ = Task.Run(async () => await ApplyFiltersAsync());
+    }
+
+    public ICommand ClearFiltersCommand => new RelayCommand(ClearFilters);
+
+    private void ClearFilters()
+    {
+        SearchQuery = "";
+        MinFileSize = null;
+        MaxFileSize = null;
+        MinDuration = null;
+        MaxDuration = null;
+        SortCriteria = SortCriteria.ScanDate;
+        SortDirection = SortDirection.Descending;
+    }
+
+    public ICommand ToggleSortDirectionCommand => new RelayCommand(ToggleSortDirection);
+
+    private void ToggleSortDirection()
+    {
+        SortDirection = SortDirection == SortDirection.Ascending ? SortDirection.Descending : SortDirection.Ascending;
     }
 
     public ICommand ShowSettingsCommand => new RelayCommand(ShowSettings);

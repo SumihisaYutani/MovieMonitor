@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:converters="clr-namespace:MovieMonitor.Converters"
+        xmlns:models="clr-namespace:MovieMonitor.Models"
         mc:Ignorable="d"
         Title="MovieMonitor - 動画ファイル管理"
         Width="{Binding Settings.WindowWidth, Mode=TwoWay}"
@@ -20,6 +21,9 @@
         <converters:ThumbnailSizeToWidthConverter x:Key="ThumbnailSizeToWidthConverter" />
         <converters:ThumbnailSizeToHeightConverter x:Key="ThumbnailSizeToHeightConverter" />
         <converters:ThumbnailSizeToImageHeightConverter x:Key="ThumbnailSizeToImageHeightConverter" />
+        <converters:SortDirectionToIconConverter x:Key="SortDirectionToIconConverter" />
+        <converters:SortDirectionToTooltipConverter x:Key="SortDirectionToTooltipConverter" />
+        <converters:SortCriteriaToDisplayNameConverter x:Key="SortCriteriaToDisplayNameConverter" />
     </Window.Resources>
 
     <Grid>
@@ -76,10 +80,17 @@
                                    Foreground="{StaticResource OnSurfaceMediumBrush}" Margin="0,0,8,0"/>
                         <TextBox x:Name="SearchTextBox" 
                                  Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" 
-                                 Width="280" Background="Transparent" BorderThickness="0"
+                                 Width="280" Background="White" BorderBrush="#E0E0E0" BorderThickness="1"
                                  VerticalAlignment="Center" VerticalContentAlignment="Center"
-                                 FontSize="14" Height="32"
+                                 FontSize="14" Height="32" IsEnabled="True" IsReadOnly="False"
+                                 Focusable="True" TabIndex="1" Padding="8,0"
+                                 AcceptsReturn="False" AcceptsTab="False"
                                  ToolTip="ファイル名で検索" />
+                        <Button Command="{Binding ApplySearchCommand}" 
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTip="検索を適用" Width="32" Height="32" Margin="4,0,0,0">
+                            <TextBlock Text="🔍" FontSize="12" />
+                        </Button>
                         <Button Command="{Binding ClearSearchCommand}" 
                                 Style="{StaticResource IconButtonStyle}"
                                 ToolTip="検索をクリア" Width="32" Height="32" Margin="4,0,0,0"
@@ -88,6 +99,45 @@
                         </Button>
                     </StackPanel>
                 </Border>
+                
+                <!-- ソートコンボボックス -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="ソート:" FontSize="14" VerticalAlignment="Center" 
+                               Foreground="{StaticResource OnSurfaceMediumBrush}" Margin="0,0,8,0"/>
+                    <ComboBox Width="120" Height="36" VerticalAlignment="Center"
+                              SelectedValue="{Binding SortCriteria, Mode=TwoWay}"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource SortCriteriaToDisplayNameConverter}}" 
+                                           TextAlignment="Center" HorizontalAlignment="Center" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                        <models:SortCriteria>FileName</models:SortCriteria>
+                        <models:SortCriteria>FileSize</models:SortCriteria>
+                        <models:SortCriteria>Duration</models:SortCriteria>
+                        <models:SortCriteria>Resolution</models:SortCriteria>
+                        <models:SortCriteria>ScanDate</models:SortCriteria>
+                        <models:SortCriteria>CreatedAt</models:SortCriteria>
+                        <models:SortCriteria>ModifiedAt</models:SortCriteria>
+                    </ComboBox>
+                    <Button Command="{Binding ToggleSortDirectionCommand}" 
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="{Binding SortDirection, Converter={StaticResource SortDirectionToTooltipConverter}}" 
+                            Width="36" Height="36" Margin="4,0,0,0">
+                        <TextBlock Text="{Binding SortDirection, Converter={StaticResource SortDirectionToIconConverter}}" 
+                                   FontSize="14" />
+                    </Button>
+                </StackPanel>
+                
+                <!-- フィルタクリアボタン -->
+                <Button Command="{Binding ClearFiltersCommand}" Style="{StaticResource IconButtonStyle}"
+                        ToolTip="すべてのフィルタをクリア" Margin="0,0,0,0" Width="72" Height="36">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🗑️" FontSize="14" Margin="0,0,6,0" />
+                        <TextBlock Text="クリア" FontWeight="Medium" FontSize="12" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Border>
 
@@ -300,20 +350,22 @@
                             Background="{StaticResource PrimaryGradientBrush}"
                             HorizontalAlignment="Center">
                         <TextBlock Text="🎬" FontSize="28" HorizontalAlignment="Center" 
-                                   VerticalAlignment="Center" Foreground="White"/>
-                        <Border.RenderTransform>
-                            <RotateTransform />
-                        </Border.RenderTransform>
-                        <Border.Triggers>
-                            <EventTrigger RoutedEvent="Loaded">
-                                <BeginStoryboard>
-                                    <Storyboard RepeatBehavior="Forever">
-                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
-                                                         From="0" To="360" Duration="0:0:1.5" />
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </Border.Triggers>
+                                   VerticalAlignment="Center" Foreground="White"
+                                   RenderTransformOrigin="0.5,0.5">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform />
+                            </TextBlock.RenderTransform>
+                            <TextBlock.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                             From="0" To="360" Duration="0:0:1.5" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </TextBlock.Triggers>
+                        </TextBlock>
                     </Border>
                     
                     <TextBlock Text="{Binding LoadingMessage}" 
