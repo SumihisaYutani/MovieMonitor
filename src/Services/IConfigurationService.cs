@@ -8,6 +8,11 @@ namespace MovieMonitor.Services;
 public interface IConfigurationService
 {
     /// <summary>
+    /// 設定変更時のイベント
+    /// </summary>
+    event EventHandler<AppSettings>? SettingsChanged;
+
+    /// <summary>
     /// アプリケーション設定を取得
     /// </summary>
     Task<AppSettings> GetSettingsAsync();

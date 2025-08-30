@@ -13,6 +13,11 @@ public class ConfigurationService : IConfigurationService
     private readonly ILogger<ConfigurationService> _logger;
     private AppSettings? _cachedSettings;
 
+    /// <summary>
+    /// 設定変更時のイベント
+    /// </summary>
+    public event EventHandler<AppSettings>? SettingsChanged;
+
     public ConfigurationService(DirectoryPaths paths, ILogger<ConfigurationService> logger)
     {
         _paths = paths;
@@ -62,7 +67,11 @@ public class ConfigurationService : IConfigurationService
             await File.WriteAllTextAsync(_paths.ConfigFilePath, json);
             _cachedSettings = settings;
             
-            _logger.LogDebug("Settings saved to {ConfigPath}", _paths.ConfigFilePath);
+            _logger.LogInformation("Settings saved to {ConfigPath}. ThumbnailSize: {Size}", _paths.ConfigFilePath, settings.ThumbnailSize);
+
+            // 設定変更イベントを発生
+            _logger.LogInformation("Invoking SettingsChanged event. Subscribers: {Count}", SettingsChanged?.GetInvocationList()?.Length ?? 0);
+            SettingsChanged?.Invoke(this, settings);
         }
         catch (Exception ex)
         {

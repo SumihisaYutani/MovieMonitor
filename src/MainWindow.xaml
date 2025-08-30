@@ -272,7 +272,7 @@
                                             </Button>
                                             <Button Command="{Binding DataContext.MoveVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}" Style="{StaticResource IconButtonStyle}"
-                                                    ToolTip="移動" Margin="4,0">
+                                                    ToolTip="フォルダで開く" Margin="4,0">
                                                 <TextBlock Text="📁" FontSize="14" />
                                             </Button>
                                             <Button Command="{Binding DataContext.DeleteVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -309,7 +309,7 @@
                                 <BeginStoryboard>
                                     <Storyboard RepeatBehavior="Forever">
                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
-                                                         To="360" Duration="0:0:2"/>
+                                                         From="0" To="360" Duration="0:0:1.5" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </EventTrigger>

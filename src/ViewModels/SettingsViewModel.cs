@@ -24,6 +24,10 @@ public class SettingsViewModel : INotifyPropertyChanged
         _logger = logger;
         _settings = new AppSettings();
         ScanDirectories = new ObservableCollection<string>();
+        
+        _logger.LogInformation("SettingsViewModel created - Constructor called");
+        System.Diagnostics.Debug.WriteLine("SettingsViewModel constructor called");
+        Console.WriteLine("SettingsViewModel constructor called - CONSOLE OUTPUT");
         LoadSettingsAsync();
     }
 
@@ -134,7 +138,14 @@ public class SettingsViewModel : INotifyPropertyChanged
     public ICommand RemoveDirectoryCommand => new RelayCommand<string>(RemoveDirectory);
     public ICommand BrowseFFmpegCommand => new RelayCommand(BrowseFFmpeg);
     public ICommand BrowsePlayerCommand => new RelayCommand(BrowsePlayer);
-    public ICommand SaveCommand => new RelayCommand(SaveSettings);
+    private RelayCommand? _saveCommand;
+    public ICommand SaveCommand => _saveCommand ??= new RelayCommand(() => 
+    {
+        _logger.LogInformation("SaveCommand executed");
+        System.Diagnostics.Debug.WriteLine("SaveCommand executed - DEBUG");
+        Console.WriteLine("SaveCommand executed - CONSOLE OUTPUT");
+        SaveSettings();
+    });
     public ICommand CancelCommand => new RelayCommand(Cancel);
 
     private void AddDirectory()
@@ -359,6 +370,8 @@ public class SettingsViewModel : INotifyPropertyChanged
     {
         try
         {
+            _logger.LogInformation("SaveSettings called. Current ThumbnailSize: {Size}", ThumbnailSize);
+            
             // 設定オブジェクトに値を設定
             _settings.ScanDirectories = ScanDirectories.ToList();
             _settings.ThumbnailSize = ThumbnailSize;
@@ -368,6 +381,7 @@ public class SettingsViewModel : INotifyPropertyChanged
             _settings.AutoScanInterval = AutoScanInterval;
             _settings.DefaultPlayer = DefaultPlayer;
 
+            _logger.LogInformation("About to call ConfigurationService.SaveSettingsAsync with ThumbnailSize: {Size}", _settings.ThumbnailSize);
             await _configurationService.SaveSettingsAsync(_settings);
             
             _logger.LogInformation("Settings saved successfully");

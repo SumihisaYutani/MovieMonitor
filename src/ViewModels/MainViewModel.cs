@@ -65,46 +65,85 @@ public partial class MainViewModel : ObservableObject
         IVideoScanService videoScanService,
         ILogger<MainViewModel> logger)
     {
+        // 一番最初にログを出力してコンストラクタ呼び出しを証明
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("MainViewModel constructor: ENTERING CONSTRUCTOR");
+            Console.WriteLine("MainViewModel constructor: ENTERING CONSTRUCTOR - CONSOLE OUTPUT");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Exception in initial logging: " + ex.Message);
+        }
+        
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: START");
         _configurationService = configurationService;
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: configurationService assigned");
+        
         _databaseService = databaseService;
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: databaseService assigned");
+        
         _videoScanService = videoScanService;
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: videoScanService assigned");
+        
         _logger = logger;
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: logger assigned");
+
+        _logger.LogInformation("MainViewModel constructor called - NEW VERSION WITH SETTINGS EVENT HANDLING");
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: After first LogInformation");
 
         // イベントハンドラー登録
         _videoScanService.ProgressChanged += OnScanProgressChanged;
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: ProgressChanged event registered");
+        
+        _configurationService.SettingsChanged += OnSettingsChanged;
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: SettingsChanged event registered");
         
         // 初期化
         _ = InitializeAsync();
+        System.Diagnostics.Debug.WriteLine("MainViewModel constructor: InitializeAsync called - CONSTRUCTOR COMPLETE");
     }
 
     private async Task InitializeAsync()
     {
+        System.Diagnostics.Debug.WriteLine("InitializeAsync: START");
         try
         {
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Setting IsLoading = true");
             IsLoading = true;
             LoadingMessage = "初期化中...";
 
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: About to initialize database");
             // データベース初期化
             await _databaseService.InitializeAsync();
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Database initialized");
 
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: About to get settings");
             // 設定読み込み
             Settings = await _configurationService.GetSettingsAsync();
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Settings loaded");
 
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: About to load existing videos");
             // 既存データ読み込み
             await LoadExistingVideosAsync();
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Existing videos loaded");
 
             StatusText = $"動画ファイル {Videos.Count} 件";
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Status text set, Videos.Count = {0}", Videos.Count);
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Exception occurred - {0}", ex.Message);
             _logger.LogError(ex, "Failed to initialize ViewModel");
             StatusText = "初期化エラー";
             ShowErrorMessage("初期化に失敗しました", ex.Message);
         }
         finally
         {
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Setting IsLoading = false");
             IsLoading = false;
             LoadingMessage = "";
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: COMPLETE");
         }
     }
 
@@ -112,7 +151,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            // 初期ロード時は最新1000件のみ
+            // 初期ロード時は最新10000件
             await PerformSearchAsync();
         }
         catch (Exception ex)
@@ -134,7 +173,7 @@ public partial class MainViewModel : ObservableObject
             var searchFilter = new SearchFilter
             {
                 Query = string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery,
-                Limit = 1000 // 一度に表示する最大件数
+                Limit = 10000 // 一度に表示する最大件数
             };
 
             var results = await _databaseService.SearchVideoFilesAsync(searchFilter);
@@ -163,6 +202,48 @@ public partial class MainViewModel : ObservableObject
         {
             ScanProgress = progress;
             LoadingMessage = $"スキャン中... {progress.CurrentFile}";
+        });
+    }
+
+    private void OnSettingsChanged(object? sender, AppSettings newSettings)
+    {
+        _logger.LogInformation("OnSettingsChanged called. New ThumbnailSize: {Size}, Current Thread: {ThreadId}", 
+            newSettings.ThumbnailSize, Thread.CurrentThread.ManagedThreadId);
+            
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var oldScanDirectories = Settings.ScanDirectories.ToList();
+            var oldSize = Settings.ThumbnailSize;
+            Settings = newSettings;
+            _logger.LogInformation("Settings updated in MainViewModel. Old: {OldSize}, New: {NewSize}", 
+                oldSize, newSettings.ThumbnailSize);
+            
+            // ThumbnailSizeプロパティの変更通知を明示的に送信
+            OnPropertyChanged(nameof(ThumbnailSize));
+            _logger.LogInformation("ThumbnailSize property change notification sent");
+            
+            // スキャンフォルダが変更された場合、除外フォルダのクリーンアップを実行
+            if (!oldScanDirectories.SequenceEqual(newSettings.ScanDirectories))
+            {
+                _logger.LogInformation("Scan directories changed, cleaning up excluded directories");
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _databaseService.CleanupExcludedDirectoriesAsync(newSettings.ScanDirectories);
+                        
+                        // UIを更新（メインスレッドで実行）
+                        await Application.Current.Dispatcher.InvokeAsync(async () =>
+                        {
+                            await LoadExistingVideosAsync();
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to cleanup excluded directories after settings change");
+                    }
+                });
+            }
         });
     }
 
@@ -205,9 +286,16 @@ public partial class MainViewModel : ObservableObject
 
             // 不要ファイルのクリーンアップ
             await _databaseService.CleanupDeletedFilesAsync();
+            
+            // スキャン対象外フォルダのクリーンアップ
+            await _databaseService.CleanupExcludedDirectoriesAsync(directories);
 
-            // UIを更新
-            await LoadExistingVideosAsync();
+            // UIを更新（強制的にUIスレッドで実行）
+            await Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                await LoadExistingVideosAsync();
+                _logger.LogInformation("UI updated after scan completed");
+            });
 
             // 設定の更新（最後のスキャン日時）
             Settings.LastScanDate = DateTime.Now;
@@ -278,21 +366,36 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public ICommand MoveVideoCommand => new AsyncRelayCommand<VideoFile>(MoveVideo);
+    public ICommand MoveVideoCommand => new AsyncRelayCommand<VideoFile>(OpenVideoLocation);
     
-    private async Task MoveVideo(VideoFile? video)
+    private async Task OpenVideoLocation(VideoFile? video)
     {
         if (video == null) return;
 
         try
         {
-            // フォルダ選択ダイアログ表示（実装簡略化のため、一旦メッセージ表示のみ）
-            ShowInfoMessage("機能準備中", "ファイル移動機能は現在実装中です。");
+            if (!File.Exists(video.FilePath))
+            {
+                ShowWarningMessage("ファイルが見つかりません", $"ファイルが存在しません：\n{video.FilePath}");
+                return;
+            }
+
+            // エクスプローラーでファイルを選択状態で開く
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{video.FilePath}\"",
+                UseShellExecute = false
+            };
+
+            Process.Start(startInfo);
+            
+            _logger.LogDebug("Opened file location in explorer: {FilePath}", video.FilePath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to move video: {FilePath}", video.FilePath);
-            ShowErrorMessage("ファイル移動エラー", ex.Message);
+            _logger.LogError(ex, "Failed to open video location: {FilePath}", video.FilePath);
+            ShowErrorMessage("フォルダを開くエラー", $"動画ファイルの場所を開けませんでした：\n{ex.Message}");
         }
     }
 
@@ -357,18 +460,16 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
+            _logger.LogInformation("ShowSettings called - opening settings window");
             var settingsWindow = new Views.SettingsWindow
             {
                 Owner = Application.Current.MainWindow
             };
+            _logger.LogInformation("Settings window created, showing dialog");
             settingsWindow.ShowDialog();
-
-            // 設定が変更された可能性があるので、設定を再読み込み
-            _ = Task.Run(async () => 
-            {
-                Settings = await _configurationService.GetSettingsAsync();
-                OnPropertyChanged(nameof(Settings));
-            });
+            _logger.LogInformation("Settings window closed");
+            
+            // 設定変更はイベント通知で自動的に更新される
         }
         catch (Exception ex)
         {

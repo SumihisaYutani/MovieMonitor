@@ -51,8 +51,54 @@ public partial class App : Application
             await _host.StartAsync();
 
             // メインウィンドウ表示
-            var mainWindow = _host.Services.GetRequiredService<MainWindow>();
-            mainWindow.Show();
+            Log.Logger.LogInfoWithLocation("About to create MainWindow");
+            try
+            {
+                // 依存関係を個別にテスト
+                Log.Logger.LogInfoWithLocation("Testing MainViewModel dependencies...");
+                var configService = _host.Services.GetRequiredService<IConfigurationService>();
+                Log.Logger.LogInfoWithLocation("IConfigurationService resolved successfully");
+                
+                var dbService = _host.Services.GetRequiredService<IDatabaseService>();
+                Log.Logger.LogInfoWithLocation("IDatabaseService resolved successfully");
+                
+                var videoScanService = _host.Services.GetRequiredService<IVideoScanService>();
+                Log.Logger.LogInfoWithLocation("IVideoScanService resolved successfully");
+                
+                var logger = _host.Services.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MainViewModel>>();
+                Log.Logger.LogInfoWithLocation("ILogger<MainViewModel> resolved successfully");
+                
+                // MainViewModelを直接作成してテスト
+                Log.Logger.LogInfoWithLocation("Creating MainViewModel directly...");
+                var mainViewModel = _host.Services.GetRequiredService<MainViewModel>();
+                Log.Logger.LogInfoWithLocation("MainViewModel created successfully");
+                Log.Logger.LogInfoWithLocation($"MainViewModel type: {mainViewModel.GetType().FullName}, HashCode: {mainViewModel.GetHashCode()}");
+                
+                // MainViewModelが実際に期待される型であることを確認
+                if (mainViewModel is MainViewModel actualMainViewModel)
+                {
+                    Log.Logger.LogInfoWithLocation("MainViewModel is correct type, checking if constructor was called properly");
+                    // 簡単なプロパティアクセスでインスタンスが有効か確認
+                    var isLoadingValue = actualMainViewModel.IsLoading;
+                    Log.Logger.LogInfoWithLocation($"MainViewModel.IsLoading: {isLoadingValue}");
+                }
+                else
+                {
+                    Log.Logger.LogInfoWithLocation("MainViewModel is not the expected type!");
+                }
+                
+                // MainViewModelを引数として渡してMainWindowを作成
+                Log.Logger.LogInfoWithLocation("Creating MainWindow with MainViewModel...");
+                var mainWindow = new MainWindow(mainViewModel);
+                Log.Logger.LogInfoWithLocation("MainWindow created successfully with MainViewModel, showing window");
+                mainWindow.Show();
+                Log.Logger.LogInfoWithLocation("MainWindow.Show() completed");
+            }
+            catch (Exception ex)
+            {
+                Log.Logger.LogErrorWithLocation(ex, "Failed to create dependencies or MainWindow: {Message}", ex.Message);
+                throw;
+            }
 
             Log.Logger.LogInfoWithLocation("Application startup completed successfully");
 
@@ -105,8 +151,8 @@ public partial class App : Application
                 services.AddSingleton<IVideoScanService, VideoScanService>();
                 services.AddSingleton<IThumbnailService, ThumbnailService>();
 
-                // ViewModels
-                services.AddTransient<MainViewModel>();
+                // ViewModels  
+                services.AddSingleton<MainViewModel>();
                 services.AddTransient<SettingsViewModel>();
 
                 // Views

@@ -295,6 +295,58 @@ public class DatabaseService : IDatabaseService, IDisposable
         }
     }
 
+    public async Task CleanupExcludedDirectoriesAsync(IEnumerable<string> scanDirectories)
+    {
+        ThrowIfDisposed();
+        EnsureDatabase();
+        try
+        {
+            var cleanedCount = await Task.Run(() =>
+            {
+                var collection = _database!.GetCollection<VideoFile>("video_files");
+                // ToList()を使って一度にメモリに読み込む
+                var allFiles = collection.FindAll().ToList();
+                int count = 0;
+
+                foreach (var file in allFiles)
+                {
+                    if (!file.IsDeleted)
+                    {
+                        // ファイルのパスがスキャン対象ディレクトリのいずれかに含まれているかチェック
+                        bool isInScanDirectory = false;
+                        foreach (var scanDir in scanDirectories)
+                        {
+                            if (file.FilePath.StartsWith(scanDir, StringComparison.OrdinalIgnoreCase))
+                            {
+                                isInScanDirectory = true;
+                                break;
+                            }
+                        }
+
+                        // スキャン対象外のファイルは削除フラグを立てる
+                        if (!isInScanDirectory)
+                        {
+                            file.IsDeleted = true;
+                            collection.Update(file);
+                            count++;
+                            _logger.LogDebug("Marked as deleted (excluded directory): {FilePath}", file.FilePath);
+                        }
+                    }
+                }
+                return count;
+            });
+
+            if (cleanedCount > 0)
+            {
+                _logger.LogInformation("Cleaned up {Count} files from excluded directories", cleanedCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to cleanup excluded directories");
+        }
+    }
+
     public async Task OptimizeDatabaseAsync()
     {
         ThrowIfDisposed();

@@ -48,6 +48,11 @@ public interface IDatabaseService
     Task CleanupDeletedFilesAsync();
 
     /// <summary>
+    /// スキャン対象外フォルダのファイルをクリーンアップ
+    /// </summary>
+    Task CleanupExcludedDirectoriesAsync(IEnumerable<string> scanDirectories);
+
+    /// <summary>
     /// データベース最適化
     /// </summary>
     Task OptimizeDatabaseAsync();

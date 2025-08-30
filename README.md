@@ -28,12 +28,14 @@ Windows PC内の動画ファイルを効率的に検索・整理するスタン�
 ### 技術スタック
 
 - **フレームワーク**: WPF + .NET 8
-- **データベース**: LiteDB (軽量NoSQL) - インデックス最適化済み
+- **データベース**: LiteDB (軽量NoSQL) - 複合インデックス最適化済み
 - **動画処理**: FFMpegCore (PNG サムネイル生成)
-- **ログ**: Serilog (ファイル・行番号付きログ)
+- **ログ**: Serilog + カスタムExtensions (ファイル名・行番号付きログ)
 - **MVVM**: CommunityToolkit.Mvvm + カスタムRelayCommand
 - **UI**: Material Design風カスタムスタイル + レスポンシブレイアウト
 - **コンバーター**: カスタム値変換器（サムネイルサイズ連動）
+- **ファイル管理**: DirectoryPathsクラス（ポータブル対応）
+- **設定管理**: JSON設定ファイル + リアルタイム反映
 
 ## 📁 プロジェクト構造
 
@@ -45,21 +47,21 @@ MovieMonitor/
 │   ├── App.xaml                  # アプリケーション設定
 │   ├── MainWindow.xaml           # メインウィンドウ
 │   ├── Models/                   # データモデル
-│   │   ├── VideoFile.cs          # 動画ファイル情報
+│   │   ├── VideoFile.cs          # 動画ファイル情報（拡張済み）
 │   │   ├── SearchFilter.cs       # 検索フィルター
 │   │   ├── ScanProgress.cs       # スキャン進行状況
-│   │   └── AppSettings.cs        # アプリケーション設定
+│   │   └── AppSettings.cs        # アプリケーション設定 + DirectoryPaths
 │   ├── Services/                 # サービス層
 │   │   ├── IConfigurationService.cs  # 設定サービス
 │   │   ├── ConfigurationService.cs
 │   │   ├── IDatabaseService.cs       # データベースサービス
-│   │   ├── DatabaseService.cs
+│   │   ├── DatabaseService.cs        # 複合インデックス対応
 │   │   ├── IVideoScanService.cs      # 動画スキャンサービス
 │   │   ├── VideoScanService.cs
 │   │   ├── IThumbnailService.cs      # サムネイルサービス
-│   │   └── ThumbnailService.cs
+│   │   └── ThumbnailService.cs       # PNG生成対応
 │   ├── ViewModels/               # MVVM ViewModels
-│   │   ├── MainViewModel.cs      # メインViewModel
+│   │   ├── MainViewModel.cs      # メインViewModel（設定即座反映対応）
 │   │   └── SettingsViewModel.cs  # 設定ViewModel
 │   ├── Views/                    # ビュー
 │   │   └── SettingsWindow.xaml   # 設定ウィンドウ
@@ -67,11 +69,12 @@ MovieMonitor/
 │   │   ├── BooleanToVisibilityConverter.cs
 │   │   └── ThumbnailSizeConverters.cs  # サムネイルサイズ変換
 │   ├── Extensions/               # 拡張メソッド
-│   │   └── SerilogExtensions.cs  # ログ拡張
-│   └── Resources/                # リソースファイル
-│       ├── Styles.xaml           # UIスタイル (Material Design)
-│       └── Icons/                # アプリケーションアイコン
-│           └── app-icon.ico
+│   │   └── LoggerExtensions.cs   # ファイル名・行番号付きログ拡張
+│   ├── Resources/                # リソースファイル
+│   │   ├── Styles.xaml           # UIスタイル (Material Design)
+│   │   └── Icons/                # アプリケーションアイコン
+│   │       └── app-icon.ico
+│   └── GlobalUsings.cs           # グローバルusing設定
 ├── docs/                         # ドキュメント
 │   ├── 要件定義書.md
 │   ├── 基本設計書.md
@@ -141,7 +144,7 @@ MovieMonitor.exe
 ### ファイル操作
 - **再生**: システムデフォルトプレーヤーで開く
 - **削除**: ごみ箱に移動
-- **移動**: 指定フォルダに移動 (実装予定)
+- **フォルダで開く**: エクスプローラーで動画ファイルを選択状態で開く
 
 ### データ管理
 - LiteDB による高速なローカルデータベース
@@ -189,17 +192,25 @@ MovieMonitor.exe
 - ✅ **高速データベース**: LiteDB・複合インデックス・クエリ最適化
 - ✅ **リアルタイム検索**: インデックス利用による高速検索
 - ✅ **再生機能**: システムデフォルト/カスタムプレーヤー対応
-- ✅ **設定システム**: GUI設定画面・JSON永続化・リアルタイム反映
+- ✅ **設定システム**: GUI設定画面・JSON永続化・**即座反映**
 - ✅ **ログシステム**: Serilog・ファイル名行番号付きログ
-- ✅ **ファイル操作**: ごみ箱削除・安全な操作
+- ✅ **ファイル操作**: ごみ箱削除・エクスプローラーで開く・安全な操作
 - ✅ **カスタムアイコン**: 映画フィルムモチーフ・単一実行ファイル
 - ✅ **エラーハンドリング**: 包括的例外処理・ユーザーフレンドリー
+- ✅ **データクリーンアップ**: スキャン対象外フォルダの自動削除
+- ✅ **ローディングアニメーション**: スムーズな1.5秒回転アニメーション
+
+### 実装済み追加機能
+- ✅ **高度な検索**: ファイルサイズ・再生時間による絞り込み（SearchFilter実装済み）
+- ✅ **複合インデックス**: データベース検索の高速化
+- ✅ **DirectoryPaths管理**: ポータブル実行ファイル対応
+- ✅ **VideoFileモデル拡張**: 幅・高さ・作成日時・更新日時対応
+- ✅ **LoggerExtensions**: ファイル名・行番号付きログ出力
 
 ### 実装予定機能
-- 📋 **ファイル移動**: 指定フォルダへのファイル移動
-- 📋 **高度な検索**: ファイルサイズ・再生時間による絞り込み
-- 📋 **自動スキャン**: 定期的なディレクトリ監視
-- 📋 **ソート機能**: 各項目による並び替え
+- 📋 **自動スキャン**: 定期的なディレクトリ監視（設定項目は存在）
+- 📋 **ソート機能**: 各項目による並び替え（UI実装）
+- 📋 **ダークテーマ**: テーマ切り替え機能（設定項目は存在）
 
 ## 🐛 トラブルシューティング
 
@@ -237,4 +248,4 @@ MovieMonitor.exe
 
 ---
 
-**MovieMonitor v1.0.0** - Windows 動画ファイル管理アプリケーション
+**MovieMonitor v1.0.0** - Windows 動画ファイル管理アプリケーション（2025-08-30完成版）
