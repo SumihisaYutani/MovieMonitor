@@ -1,0 +1,352 @@
+<Window x:Class="MovieMonitor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:MovieMonitor.Converters"
+        mc:Ignorable="d"
+        Title="MovieMonitor - 動画ファイル管理"
+        Width="{Binding Settings.WindowWidth, Mode=TwoWay}"
+        Height="{Binding Settings.WindowHeight, Mode=TwoWay}"
+        Left="{Binding Settings.WindowLeft, Mode=TwoWay}"
+        Top="{Binding Settings.WindowTop, Mode=TwoWay}"
+        WindowState="{Binding WindowState, Mode=TwoWay}"
+        MinWidth="800"
+        MinHeight="600"
+        Background="{StaticResource BackgroundBrush}">
+
+    <Window.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- メニューバー -->
+        <Menu Grid.Row="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+            <MenuItem Header="ファイル(_F)">
+                <MenuItem Header="スキャン開始(_S)" Command="{Binding ScanCommand}" />
+                <Separator />
+                <MenuItem Header="設定(_C)" Command="{Binding ShowSettingsCommand}" />
+                <Separator />
+                <MenuItem Header="終了(_X)" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="表示(_V)">
+                <MenuItem Header="更新(_R)" Command="{Binding RefreshCommand}" />
+                <Separator />
+                <MenuItem Header="グリッド表示" IsChecked="True" />
+                <MenuItem Header="リスト表示" />
+            </MenuItem>
+            <MenuItem Header="ヘルプ(_H)">
+                <MenuItem Header="バージョン情報(_A)" Command="{Binding ShowAboutCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <!-- ツールバー -->
+        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" 
+                BorderBrush="{StaticResource OnSurfaceLightBrush}" BorderThickness="0,0,0,1"
+                Effect="{StaticResource ElevationShadow1}">
+            <StackPanel Orientation="Horizontal" Margin="16,12" Height="48">
+                <Button Command="{Binding ScanCommand}" Style="{StaticResource PrimaryButtonStyle}"
+                        ToolTip="動画ファイルをスキャン" Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔍" FontSize="16" Margin="0,0,8,0" />
+                        <TextBlock Text="スキャン開始" FontWeight="Medium" />
+                    </StackPanel>
+                </Button>
+                
+                <Button Command="{Binding RefreshCommand}" Style="{StaticResource IconButtonStyle}"
+                        ToolTip="表示を更新" Margin="0,0,24,0" Width="48" Height="48">
+                    <TextBlock Text="🔄" FontSize="18" />
+                </Button>
+                
+                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="24" 
+                        BorderBrush="{StaticResource OnSurfaceLightBrush}" BorderThickness="1"
+                        Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal" Margin="16,0">
+                        <TextBlock Text="🔎" FontSize="16" VerticalAlignment="Center" 
+                                   Foreground="{StaticResource OnSurfaceMediumBrush}" Margin="0,0,8,0"/>
+                        <TextBox x:Name="SearchTextBox" 
+                                 Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" 
+                                 Width="280" Background="Transparent" BorderThickness="0"
+                                 VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                 FontSize="14" Height="32"
+                                 ToolTip="ファイル名で検索" />
+                        <Button Command="{Binding ClearSearchCommand}" 
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTip="検索をクリア" Width="32" Height="32" Margin="4,0,0,0"
+                                Visibility="{Binding SearchQuery, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="✕" FontSize="12" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- メインコンテンツ -->
+        <Grid Grid.Row="2">
+            <!-- ビデオファイル一覧 -->
+            <ScrollViewer x:Name="VideoScrollViewer" 
+                          Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"
+                          Background="Transparent">
+                <ItemsControl ItemsSource="{Binding FilteredVideos}" Margin="24">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource CardStyle}" Margin="12" 
+                                    Width="280" Height="320" Cursor="Hand">
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="MouseEnter">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.02" Duration="0:0:0.2">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.02" Duration="0:0:0.2">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                    <EventTrigger RoutedEvent="MouseLeave">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.2">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.2">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
+                                </Border.RenderTransform>
+                                <Border.RenderTransformOrigin>
+                                    <Point X="0.5" Y="0.5"/>
+                                </Border.RenderTransformOrigin>
+                                
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="180" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- サムネイル -->
+                                    <Border Grid.Row="0" CornerRadius="8,8,0,0" ClipToBounds="True">
+                                        <Grid>
+                                            <!-- グラデーションオーバーレイ -->
+                                            <Border Background="{StaticResource PrimaryGradientBrush}" Opacity="0.1"/>
+                                            
+                                            <Image Source="{Binding ThumbnailPath}" 
+                                                   Stretch="UniformToFill"
+                                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                                <Image.Style>
+                                                    <Style TargetType="Image">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ThumbnailPath}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Image.Style>
+                                            </Image>
+                                            
+                                            <!-- プレースホルダー -->
+                                            <Grid Visibility="{Binding ThumbnailPath, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}">
+                                                <Rectangle Fill="{StaticResource PrimaryGradientBrush}" Opacity="0.1"/>
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <TextBlock Text="🎬" FontSize="48" 
+                                                               HorizontalAlignment="Center"
+                                                               Foreground="{StaticResource PrimaryBrush}"/>
+                                                    <TextBlock Text="動画ファイル" FontSize="12" 
+                                                               HorizontalAlignment="Center" Margin="0,8,0,0"
+                                                               Foreground="{StaticResource OnSurfaceMediumBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            
+                                            <!-- 再生ボタンオーバーレイ -->
+                                            <Border Background="#80000000" Opacity="0" Name="PlayOverlay">
+                                                <Button Command="{Binding DataContext.PlayVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" Background="Transparent" BorderThickness="0"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                        Width="60" Height="60">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="30"
+                                                                    Width="60" Height="60" Effect="{StaticResource ElevationShadow2}">
+                                                                <TextBlock Text="▶" FontSize="24" HorizontalAlignment="Center" 
+                                                                           VerticalAlignment="Center" Margin="3,0,0,0"
+                                                                           Foreground="{StaticResource PrimaryBrush}"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </Border>
+                                        </Grid>
+                                        <Border.Triggers>
+                                            <EventTrigger RoutedEvent="MouseEnter">
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="PlayOverlay" 
+                                                                         Storyboard.TargetProperty="Opacity" 
+                                                                         To="1.0" Duration="0:0:0.2"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                            <EventTrigger RoutedEvent="MouseLeave">
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="PlayOverlay" 
+                                                                         Storyboard.TargetProperty="Opacity" 
+                                                                         To="0.0" Duration="0:0:0.2"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                        </Border.Triggers>
+                                    </Border>
+
+                                    <!-- ファイル情報 -->
+                                    <StackPanel Grid.Row="1" Margin="16,12">
+                                        <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" FontSize="14"
+                                                   TextTrimming="CharacterEllipsis" LineHeight="20"
+                                                   Foreground="{StaticResource OnSurfaceBrush}"
+                                                   ToolTip="{Binding FileName}" Margin="0,0,0,8" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                            <Border Background="{StaticResource PrimaryLightBrush}" CornerRadius="8" 
+                                                    Padding="6,2" Margin="0,0,6,0">
+                                                <TextBlock Text="{Binding Resolution}" FontSize="10" FontWeight="Medium"
+                                                           Foreground="{StaticResource PrimaryDarkBrush}" />
+                                            </Border>
+                                            <Border Background="{StaticResource OnSurfaceLightBrush}" CornerRadius="8" 
+                                                    Padding="6,2">
+                                                <TextBlock Text="{Binding FormattedDuration}" FontSize="10"
+                                                           Foreground="{StaticResource OnSurfaceMediumBrush}" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding FormattedFileSize}" FontSize="12"
+                                                   Foreground="{StaticResource OnSurfaceMediumBrush}" />
+                                    </StackPanel>
+
+                                    <!-- アクションボタン -->
+                                    <Border Grid.Row="2" Background="{StaticResource BackgroundBrush}" 
+                                            CornerRadius="0,0,8,8" Padding="12,8">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Command="{Binding DataContext.PlayVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" Style="{StaticResource IconButtonStyle}"
+                                                    ToolTip="再生" Margin="4,0">
+                                                <TextBlock Text="▶" FontSize="14" />
+                                            </Button>
+                                            <Button Command="{Binding DataContext.MoveVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" Style="{StaticResource IconButtonStyle}"
+                                                    ToolTip="移動" Margin="4,0">
+                                                <TextBlock Text="📁" FontSize="14" />
+                                            </Button>
+                                            <Button Command="{Binding DataContext.DeleteVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" Style="{StaticResource IconButtonStyle}"
+                                                    ToolTip="削除" Margin="4,0">
+                                                <TextBlock Text="🗑" FontSize="14" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- ローディング表示 -->
+            <Border Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    Background="#E0FFFFFF" CornerRadius="12" 
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Effect="{StaticResource ElevationShadow2}">
+                <StackPanel Margin="32,24" MinWidth="300">
+                    <!-- ローディングアニメーション -->
+                    <Border Width="60" Height="60" CornerRadius="30" Margin="0,0,0,16"
+                            Background="{StaticResource PrimaryGradientBrush}"
+                            HorizontalAlignment="Center">
+                        <TextBlock Text="🎬" FontSize="28" HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center" Foreground="White"/>
+                        <Border.RenderTransform>
+                            <RotateTransform />
+                        </Border.RenderTransform>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                         To="360" Duration="0:0:2"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
+                    </Border>
+                    
+                    <TextBlock Text="{Binding LoadingMessage}" 
+                               HorizontalAlignment="Center" FontSize="16" FontWeight="Medium"
+                               Foreground="{StaticResource OnSurfaceBrush}" Margin="0,0,0,12" />
+                    
+                    <!-- プログレスバー -->
+                    <ProgressBar Width="250" Height="4" IsIndeterminate="True" 
+                                 Background="{StaticResource OnSurfaceLightBrush}"
+                                 Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,16" />
+                    
+                    <TextBlock Text="{Binding ScanProgress.ProgressText}" 
+                               HorizontalAlignment="Center" FontSize="12"
+                               Foreground="{StaticResource OnSurfaceMediumBrush}"
+                               Visibility="{Binding ScanProgress, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ステータスバー -->
+        <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" 
+                BorderBrush="{StaticResource OnSurfaceLightBrush}" BorderThickness="0,1,0,0"
+                Effect="{StaticResource ElevationShadow1}">
+            <Grid Margin="16,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Grid.Column="0" Text="{Binding StatusText}" 
+                           FontSize="12" VerticalAlignment="Center"
+                           Foreground="{StaticResource OnSurfaceMediumBrush}" />
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Border Background="{StaticResource PrimaryLightBrush}" CornerRadius="12" 
+                            Padding="8,4" Margin="8,0,0,0">
+                        <TextBlock Text="{Binding FilteredVideos.Count, StringFormat={}{0} 件}" 
+                                   FontSize="11" FontWeight="Medium"
+                                   Foreground="{StaticResource PrimaryDarkBrush}" />
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
