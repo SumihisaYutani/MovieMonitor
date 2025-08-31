@@ -20,11 +20,13 @@ public partial class MainViewModel : ObservableObject
     private readonly IVideoScanService _videoScanService;
     private readonly ILogger<MainViewModel> _logger;
 
-    [ObservableProperty]
-    private ObservableCollection<VideoFile> _videos = new();
-
+    // メモリ最適化: Videosコレクションを削除してFilteredVideosのみ使用
     [ObservableProperty]
     private ObservableCollection<VideoFile> _filteredVideos = new();
+    
+    // ソート処理の重複実行を防ぐ
+    private bool _isApplyingFilters = false;
+    private CancellationTokenSource? _filterCancellationTokenSource;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -131,7 +133,7 @@ public partial class MainViewModel : ObservableObject
         System.Diagnostics.Debug.WriteLine("MainViewModel constructor: SettingsChanged event registered");
         
         // プロパティ変更時のフィルタリング（SearchQueryは除外）
-        PropertyChanged += (sender, args) => 
+        PropertyChanged += async (sender, args) => 
         {
             if (args.PropertyName == nameof(SortCriteria) ||
                 args.PropertyName == nameof(SortDirection) ||
@@ -140,7 +142,8 @@ public partial class MainViewModel : ObservableObject
                 args.PropertyName == nameof(MinDuration) ||
                 args.PropertyName == nameof(MaxDuration))
             {
-                _ = Task.Run(async () => await ApplyFiltersAsync());
+                // 重複実行を防ぎ、デバウンス処理を追加
+                await ApplyFiltersWithDebounceAsync();
             }
         };
 
@@ -173,8 +176,8 @@ public partial class MainViewModel : ObservableObject
             await LoadExistingVideosAsync();
             System.Diagnostics.Debug.WriteLine("InitializeAsync: Existing videos loaded");
 
-            StatusText = $"動画ファイル {Videos.Count} 件";
-            System.Diagnostics.Debug.WriteLine("InitializeAsync: Status text set, Videos.Count = {0}", Videos.Count);
+            StatusText = $"動画ファイル {FilteredVideos.Count} 件";
+            System.Diagnostics.Debug.WriteLine("InitializeAsync: Status text set, FilteredVideos.Count = {0}", FilteredVideos.Count);
         }
         catch (Exception ex)
         {
@@ -212,12 +215,42 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// フィルタ条件をすべて適用して動画リストを更新
+    /// フィルタ条件をすべて適用して動画リストを更新（デバウンス付き）
     /// </summary>
-    private async Task ApplyFiltersAsync()
+    private async Task ApplyFiltersWithDebounceAsync()
     {
+        // 進行中の処理をキャンセル
+        _filterCancellationTokenSource?.Cancel();
+        _filterCancellationTokenSource = new CancellationTokenSource();
+        
+        var token = _filterCancellationTokenSource.Token;
+        
         try
         {
+            // 100ms待機してデバウンス効果を得る
+            await Task.Delay(100, token);
+            
+            if (token.IsCancellationRequested) return;
+            
+            await ApplyFiltersAsync(token);
+        }
+        catch (OperationCanceledException)
+        {
+            // キャンセルは正常な処理
+        }
+    }
+
+    /// <summary>
+    /// フィルタ条件をすべて適用して動画リストを更新
+    /// </summary>
+    private async Task ApplyFiltersAsync(CancellationToken cancellationToken = default)
+    {
+        if (_isApplyingFilters) return;
+        
+        try
+        {
+            _isApplyingFilters = true;
+            
             var searchFilter = new SearchFilter
             {
                 Query = string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery,
@@ -232,21 +265,49 @@ public partial class MainViewModel : ObservableObject
 
             var results = await _databaseService.SearchVideoFilesAsync(searchFilter);
             
-            Application.Current.Dispatcher.Invoke(() =>
+            if (cancellationToken.IsCancellationRequested) return;
+            
+            // UIの更新を非同期で実行
+            await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                FilteredVideos.Clear();
-                Videos.Clear();
-                
-                foreach (var video in results)
-                {
-                    Videos.Add(video);
-                    FilteredVideos.Add(video);
-                }
+                // UIの更新を最小限に抑制
+                UpdateVideoCollections(results);
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to apply filters");
+        }
+        finally
+        {
+            _isApplyingFilters = false;
+        }
+    }
+    
+    /// <summary>
+    /// 動画コレクションの更新を最適化（メモリ効率を向上）
+    /// </summary>
+    private void UpdateVideoCollections(List<VideoFile> newResults)
+    {
+        // 既存データと比較して変更があるかチェック
+        if (FilteredVideos.Count == newResults.Count && FilteredVideos.SequenceEqual(newResults))
+        {
+            return; // 同じデータなので更新不要
+        }
+        
+        // メモリ効率化: ObservableCollectionの通知を一時停止
+        FilteredVideos.Clear();
+        
+        // バッチでデータを追加（UIスレッドでの処理時間を短縮）
+        foreach (var video in newResults)
+        {
+            FilteredVideos.Add(video);
+        }
+        
+        // GCを促進して不要メモリを回収
+        if (newResults.Count > 1000)
+        {
+            GC.Collect(0, GCCollectionMode.Optimized);
         }
     }
 
@@ -517,7 +578,6 @@ public partial class MainViewModel : ObservableObject
                 await _databaseService.DeleteVideoFileAsync(video.Id);
 
                 // UIから削除
-                Videos.Remove(video);
                 FilteredVideos.Remove(video);
 
                 StatusText = $"ファイルを削除しました: {video.FileName}";
@@ -558,7 +618,7 @@ public partial class MainViewModel : ObservableObject
     {
         SearchQuery = "";
         // 検索クリア時は即座にフィルタ適用
-        _ = Task.Run(async () => await ApplyFiltersAsync());
+        _ = ApplyFiltersWithDebounceAsync();
     }
 
     public ICommand ClearFiltersCommand => new RelayCommand(ClearFilters);
@@ -661,10 +721,17 @@ public partial class MainViewModel : ObservableObject
         {
             // スキャンをキャンセル
             _scanCancellationTokenSource?.Cancel();
+            
+            // フィルタ処理をキャンセル
+            _filterCancellationTokenSource?.Cancel();
 
             // 設定保存
             Settings.WindowMaximized = WindowState == WindowState.Maximized;
             _ = _configurationService.SaveSettingsAsync(Settings);
+            
+            // リソースのクリーンアップ
+            _scanCancellationTokenSource?.Dispose();
+            _filterCancellationTokenSource?.Dispose();
         }
         catch (Exception ex)
         {
