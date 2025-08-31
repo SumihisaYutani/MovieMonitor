@@ -34,9 +34,9 @@ public class ThumbnailSizeToHeightConverter : IValueConverter
         if (value is int thumbnailSize)
         {
             // サムネイル高さ = サムネイルサイズ * 0.75 (16:12比率)
-            // カード高さ = サムネイル高さ + 情報エリア（80px） + ボタンエリア（50px）
+            // カード高さ = サムネイル高さ + 情報エリア（120px：1行ファイル名+余白） + ボタンエリア（50px）
             var thumbnailHeight = (int)(thumbnailSize * 0.75);
-            return Math.Max(150, thumbnailHeight + 130); // 最小150px
+            return Math.Max(190, thumbnailHeight + 170); // 最小190px、標準レイアウト
         }
         return 320; // デフォルト値
     }

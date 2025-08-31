@@ -59,18 +59,25 @@ public class ConfigurationService : IConfigurationService
     {
         try
         {
+            Console.WriteLine($"[DEBUG] ConfigurationService.SaveSettingsAsync - Received Theme: {settings.Theme}, ThumbnailSize: {settings.ThumbnailSize}");
+            
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
             {
                 WriteIndented = true
             });
 
+            Console.WriteLine($"[DEBUG] ConfigurationService.SaveSettingsAsync - Serialized JSON contains: {json.Substring(0, Math.Min(200, json.Length))}...");
+            
             await File.WriteAllTextAsync(_paths.ConfigFilePath, json);
             _cachedSettings = settings;
+            
+            Console.WriteLine($"[DEBUG] ConfigurationService.SaveSettingsAsync - _cachedSettings updated, Theme: {_cachedSettings.Theme}");
             
             _logger.LogInformation("Settings saved to {ConfigPath}. ThumbnailSize: {Size}", _paths.ConfigFilePath, settings.ThumbnailSize);
 
             // 設定変更イベントを発生
             _logger.LogInformation("Invoking SettingsChanged event. Subscribers: {Count}", SettingsChanged?.GetInvocationList()?.Length ?? 0);
+            Console.WriteLine($"[DEBUG] ConfigurationService - About to invoke SettingsChanged event with Theme: {settings.Theme}");
             SettingsChanged?.Invoke(this, settings);
         }
         catch (Exception ex)

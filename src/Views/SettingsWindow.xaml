@@ -59,7 +59,7 @@
                         </DockPanel>
                         
                         <ListBox ItemsSource="{Binding ScanDirectories}" 
-                                 Height="120" Background="Transparent" BorderThickness="1"
+                                 Height="120" Background="White" BorderThickness="1"
                                  BorderBrush="{StaticResource OnSurfaceLightBrush}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -69,7 +69,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"
-                                                   Margin="4"/>
+                                                   Margin="4" Foreground="Black"/>
                                         <Button Grid.Column="1" Content="削除" 
                                                 Command="{Binding DataContext.RemoveDirectoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding}"

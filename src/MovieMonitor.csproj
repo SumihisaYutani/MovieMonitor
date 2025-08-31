@@ -48,7 +48,8 @@
 
   <ItemGroup>
     <Resource Include="Resources\Styles.xaml" />
-    <None Include="Resources\**" CopyToOutputDirectory="PreserveNewest" Exclude="Resources\Styles.xaml;Resources\Icons\app-icon.ico" />
+    <Resource Include="Resources\DarkTheme.xaml" />
+    <None Include="Resources\**" CopyToOutputDirectory="PreserveNewest" Exclude="Resources\Styles.xaml;Resources\DarkTheme.xaml;Resources\Icons\app-icon.ico" />
     <None Include="Resources\Icons\app-icon.ico" />
   </ItemGroup>
 

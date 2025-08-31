@@ -72,7 +72,20 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSettingsChanged(AppSettings value)
     {
+        Console.WriteLine($"[DEBUG] OnSettingsChanged called, Theme: {value.Theme}, ThumbnailSize: {value.ThumbnailSize}");
+        Console.WriteLine($"[DEBUG] Previous Theme: {Settings.Theme}, New Theme: {value.Theme}");
         OnPropertyChanged(nameof(ThumbnailSize));
+        
+        // テーマ変更の適用
+        if (Application.Current is App app)
+        {
+            Console.WriteLine("[DEBUG] Application.Current is App - calling ApplyTheme");
+            app.ApplyTheme(value.Theme);
+        }
+        else
+        {
+            Console.WriteLine("[DEBUG] Application.Current is NOT App - cannot apply theme");
+        }
     }
 
     private CancellationTokenSource? _scanCancellationTokenSource;
@@ -258,14 +271,44 @@ public partial class MainViewModel : ObservableObject
     {
         _logger.LogInformation("OnSettingsChanged called. New ThumbnailSize: {Size}, Current Thread: {ThreadId}", 
             newSettings.ThumbnailSize, Thread.CurrentThread.ManagedThreadId);
+        Console.WriteLine($"[DEBUG] Private OnSettingsChanged called, Theme: {newSettings.Theme}, ThumbnailSize: {newSettings.ThumbnailSize}");
             
         Application.Current.Dispatcher.Invoke(() =>
         {
             var oldScanDirectories = Settings.ScanDirectories.ToList();
             var oldSize = Settings.ThumbnailSize;
+            var oldTheme = Settings.Theme;
+            
             Settings = newSettings;
+            
             _logger.LogInformation("Settings updated in MainViewModel. Old: {OldSize}, New: {NewSize}", 
                 oldSize, newSettings.ThumbnailSize);
+            Console.WriteLine($"[DEBUG] Settings object updated. Old Theme: {oldTheme}, New Theme: {newSettings.Theme}");
+            
+            // テーマ変更の適用（強制適用も含む）
+            if (oldTheme != newSettings.Theme)
+            {
+                Console.WriteLine($"[DEBUG] Theme change detected, applying new theme: {newSettings.Theme}");
+                if (Application.Current is App app)
+                {
+                    Console.WriteLine("[DEBUG] Application.Current is App - calling ApplyTheme from private OnSettingsChanged");
+                    app.ApplyTheme(newSettings.Theme);
+                }
+                else
+                {
+                    Console.WriteLine("[DEBUG] Application.Current is NOT App - cannot apply theme from private OnSettingsChanged");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[DEBUG] No theme change detected, but forcing theme application: {oldTheme}");
+                // テーマが同じでも、設定保存時には強制的に適用する（UIリフレッシュのため）
+                if (Application.Current is App app)
+                {
+                    Console.WriteLine("[DEBUG] Forcing theme application even though theme hasn't changed");
+                    app.ApplyTheme(newSettings.Theme);
+                }
+            }
             
             // ThumbnailSizeプロパティの変更通知を明示的に送信
             OnPropertyChanged(nameof(ThumbnailSize));

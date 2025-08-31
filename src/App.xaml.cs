@@ -20,6 +20,80 @@ public partial class App : Application
     
     public IServiceProvider ServiceProvider => _host?.Services ?? throw new InvalidOperationException("Host is not initialized");
 
+    /// <summary>
+    /// テーマを変更します
+    /// </summary>
+    /// <param name="theme">適用するテーマ</param>
+    public void ApplyTheme(AppTheme theme)
+    {
+        try
+        {
+            Console.WriteLine($"[DEBUG] ApplyTheme called with theme: {theme}");
+            Log.Logger?.LogInfoWithLocation($"ApplyTheme called with theme: {theme}");
+            
+            var resourceDict = new ResourceDictionary();
+            
+            switch (theme)
+            {
+                case AppTheme.Light:
+                    resourceDict.Source = new Uri("pack://application:,,,/Resources/Styles.xaml");
+                    Console.WriteLine("[DEBUG] Loading Light theme: pack://application:,,,/Resources/Styles.xaml");
+                    break;
+                case AppTheme.Dark:
+                    resourceDict.Source = new Uri("pack://application:,,,/Resources/DarkTheme.xaml");
+                    Console.WriteLine("[DEBUG] Loading Dark theme: pack://application:,,,/Resources/DarkTheme.xaml");
+                    break;
+                default:
+                    resourceDict.Source = new Uri("pack://application:,,,/Resources/Styles.xaml");
+                    Console.WriteLine("[DEBUG] Loading default Light theme: pack://application:,,,/Resources/Styles.xaml");
+                    break;
+            }
+
+            Console.WriteLine($"[DEBUG] Current MergedDictionaries count before clear: {Resources.MergedDictionaries.Count}");
+            
+            // 既存のテーマリソースをクリア
+            Resources.MergedDictionaries.Clear();
+            
+            Console.WriteLine($"[DEBUG] MergedDictionaries cleared, count: {Resources.MergedDictionaries.Count}");
+            
+            // 新しいテーマを適用
+            Resources.MergedDictionaries.Add(resourceDict);
+            
+            Console.WriteLine($"[DEBUG] New theme added, MergedDictionaries count: {Resources.MergedDictionaries.Count}");
+            Console.WriteLine($"[DEBUG] Resource dictionary source: {resourceDict.Source}");
+            
+            Log.Logger?.LogInfoWithLocation($"Theme applied successfully: {theme}");
+            
+            // リソース内容を確認
+            if (resourceDict.Contains("BackgroundBrush"))
+            {
+                var bgBrush = resourceDict["BackgroundBrush"];
+                Console.WriteLine($"[DEBUG] BackgroundBrush found: {bgBrush}");
+            }
+            else
+            {
+                Console.WriteLine("[DEBUG] BackgroundBrush not found in resource dictionary");
+            }
+            
+            // 現在のアプリケーションリソースからもBackgroundBrushを確認
+            if (Resources.Contains("BackgroundBrush"))
+            {
+                var currentBgBrush = Resources["BackgroundBrush"];
+                Console.WriteLine($"[DEBUG] Application.Resources BackgroundBrush after update: {currentBgBrush}");
+            }
+            else
+            {
+                Console.WriteLine("[DEBUG] BackgroundBrush not found in Application.Resources after update");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Exception in ApplyTheme: {ex.Message}");
+            Console.WriteLine($"[DEBUG] Exception stack trace: {ex.StackTrace}");
+            Log.Logger?.LogErrorWithLocation(ex, $"Failed to apply theme: {theme}");
+        }
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         try
@@ -58,6 +132,13 @@ public partial class App : Application
 
             // サービス開始
             await _host.StartAsync();
+
+            // 初期テーマの適用
+            Console.WriteLine("[DEBUG] Loading initial theme settings...");
+            var themeConfigService = _host.Services.GetRequiredService<IConfigurationService>();
+            var settings = await themeConfigService.GetSettingsAsync();
+            Console.WriteLine($"[DEBUG] Initial theme setting loaded: {settings.Theme}");
+            ApplyTheme(settings.Theme);
 
             // メインウィンドウ表示
             Log.Logger.LogInfoWithLocation("About to create MainWindow");

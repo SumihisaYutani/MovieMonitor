@@ -371,6 +371,8 @@ public class SettingsViewModel : INotifyPropertyChanged
         try
         {
             _logger.LogInformation("SaveSettings called. Current ThumbnailSize: {Size}", ThumbnailSize);
+            Console.WriteLine($"[DEBUG] SaveSettings - Current Theme property: {Theme}");
+            Console.WriteLine($"[DEBUG] SaveSettings - Current ThumbnailSize property: {ThumbnailSize}");
             
             // 設定オブジェクトに値を設定
             _settings.ScanDirectories = ScanDirectories.ToList();
@@ -380,6 +382,9 @@ public class SettingsViewModel : INotifyPropertyChanged
             _settings.AutoScan = AutoScan;
             _settings.AutoScanInterval = AutoScanInterval;
             _settings.DefaultPlayer = DefaultPlayer;
+
+            Console.WriteLine($"[DEBUG] SaveSettings - _settings.Theme after assignment: {_settings.Theme}");
+            Console.WriteLine($"[DEBUG] SaveSettings - _settings.ThumbnailSize after assignment: {_settings.ThumbnailSize}");
 
             _logger.LogInformation("About to call ConfigurationService.SaveSettingsAsync with ThumbnailSize: {Size}", _settings.ThumbnailSize);
             await _configurationService.SaveSettingsAsync(_settings);
