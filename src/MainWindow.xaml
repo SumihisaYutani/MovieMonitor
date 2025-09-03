@@ -7,11 +7,7 @@
         xmlns:models="clr-namespace:MovieMonitor.Models"
         mc:Ignorable="d"
         Title="MovieMonitor - 動画ファイル管理"
-        Width="{Binding Settings.WindowWidth, Mode=TwoWay}"
-        Height="{Binding Settings.WindowHeight, Mode=TwoWay}"
-        Left="{Binding Settings.WindowLeft, Mode=TwoWay}"
-        Top="{Binding Settings.WindowTop, Mode=TwoWay}"
-        WindowState="{Binding WindowState, Mode=TwoWay}"
+        WindowState="Maximized"
         MinWidth="800"
         MinHeight="600"
         Background="{DynamicResource BackgroundBrush}">
