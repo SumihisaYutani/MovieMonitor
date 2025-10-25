@@ -128,12 +128,45 @@
                 
                 <!-- フィルタクリアボタン -->
                 <Button Command="{Binding ClearFiltersCommand}" Style="{StaticResource IconButtonStyle}"
-                        ToolTip="すべてのフィルタをクリア" Margin="0,0,0,0" Width="72" Height="36">
+                        ToolTip="すべてのフィルタをクリア" Margin="0,0,24,0" Width="72" Height="36">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="🗑️" FontSize="14" Margin="0,0,6,0" />
                         <TextBlock Text="クリア" FontWeight="Medium" FontSize="12" />
                     </StackPanel>
                 </Button>
+                
+                <!-- ランダム再生コントロール -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                    <!-- ランダムリスト作成ボタン -->
+                    <Button Command="{Binding CreateRandomPlaylistCommand}" Style="{StaticResource PrimaryButtonStyle}"
+                            ToolTip="現在の動画リストからランダムプレイリストを作成" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🎲" FontSize="16" Margin="0,0,8,0" />
+                            <TextBlock Text="ランダムリスト作成" FontWeight="Medium" />
+                        </StackPanel>
+                    </Button>
+                    
+                    <!-- 前の動画ボタン -->
+                    <Button Command="{Binding PreviousVideoCommand}" Style="{StaticResource IconButtonStyle}"
+                            ToolTip="前の動画を再生" Margin="0,0,4,0" Width="48" Height="48"
+                            IsEnabled="{Binding IsRandomPlayModeEnabled}">
+                        <TextBlock Text="⏮️" FontSize="18" />
+                    </Button>
+                    
+                    <!-- 次の動画ボタン -->
+                    <Button Command="{Binding NextVideoCommand}" Style="{StaticResource IconButtonStyle}"
+                            ToolTip="次の動画を再生" Margin="0,0,8,0" Width="48" Height="48"
+                            IsEnabled="{Binding IsRandomPlayModeEnabled}">
+                        <TextBlock Text="⏭️" FontSize="18" />
+                    </Button>
+                    
+                    <!-- 停止ボタン -->
+                    <Button Command="{Binding StopRandomPlayCommand}" Style="{StaticResource IconButtonStyle}"
+                            ToolTip="ランダム再生を停止" Margin="0,0,0,0" Width="48" Height="48"
+                            IsEnabled="{Binding IsRandomPlayModeEnabled}">
+                        <TextBlock Text="⏹️" FontSize="18" />
+                    </Button>
+                </StackPanel>
             </StackPanel>
         </Border>
 

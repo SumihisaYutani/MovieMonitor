@@ -67,6 +67,18 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private double? _maxDuration;
 
+    // ランダム再生機能
+    private List<VideoFile> _randomPlaylist = new();
+    
+    [ObservableProperty]
+    private int _currentPlayIndex = -1;
+
+    [ObservableProperty]
+    private bool _isRandomPlayModeEnabled = false;
+
+    [ObservableProperty]
+    private VideoFile? _currentlyPlayingVideo;
+
     /// <summary>
     /// サムネイルサイズ（設定から取得）
     /// </summary>
@@ -680,6 +692,87 @@ public partial class MainViewModel : ObservableObject
     private void Exit()
     {
         Application.Current.Shutdown();
+    }
+
+    // ランダム再生コマンド
+    public ICommand CreateRandomPlaylistCommand => new RelayCommand(CreateRandomPlaylist);
+    public ICommand NextVideoCommand => new AsyncRelayCommand(PlayNextVideo);
+    public ICommand PreviousVideoCommand => new AsyncRelayCommand(PlayPreviousVideo);
+    public ICommand StopRandomPlayCommand => new RelayCommand(StopRandomPlay);
+
+    private void CreateRandomPlaylist()
+    {
+        if (!FilteredVideos.Any())
+        {
+            ShowInfoMessage("ランダムリスト作成", "再生する動画がありません。");
+            return;
+        }
+
+        // 現在のFilteredVideosからランダムプレイリストを作成
+        var random = new Random();
+        _randomPlaylist = FilteredVideos.OrderBy(x => random.Next()).ToList();
+        CurrentPlayIndex = -1;
+        IsRandomPlayModeEnabled = true;
+        CurrentlyPlayingVideo = null;
+
+        StatusText = $"ランダムプレイリストを作成しました（{_randomPlaylist.Count}件）";
+        _logger.LogInformation("Random playlist created with {Count} videos", _randomPlaylist.Count);
+    }
+
+    private async Task PlayNextVideo()
+    {
+        if (!IsRandomPlayModeEnabled || !_randomPlaylist.Any())
+        {
+            ShowInfoMessage("次の動画", "ランダムプレイリストが作成されていません。");
+            return;
+        }
+
+        CurrentPlayIndex++;
+        if (CurrentPlayIndex >= _randomPlaylist.Count)
+        {
+            // プレイリスト終了
+            ShowInfoMessage("再生完了", "すべての動画の再生が完了しました。");
+            StopRandomPlay();
+            return;
+        }
+
+        var videoToPlay = _randomPlaylist[CurrentPlayIndex];
+        CurrentlyPlayingVideo = videoToPlay;
+        await PlayVideo(videoToPlay);
+        
+        StatusText = $"再生中: {videoToPlay.FileName} ({CurrentPlayIndex + 1}/{_randomPlaylist.Count})";
+    }
+
+    private async Task PlayPreviousVideo()
+    {
+        if (!IsRandomPlayModeEnabled || !_randomPlaylist.Any())
+        {
+            ShowInfoMessage("前の動画", "ランダムプレイリストが作成されていません。");
+            return;
+        }
+
+        if (CurrentPlayIndex <= 0)
+        {
+            ShowInfoMessage("前の動画", "最初の動画です。");
+            return;
+        }
+
+        CurrentPlayIndex--;
+        var videoToPlay = _randomPlaylist[CurrentPlayIndex];
+        CurrentlyPlayingVideo = videoToPlay;
+        await PlayVideo(videoToPlay);
+        
+        StatusText = $"再生中: {videoToPlay.FileName} ({CurrentPlayIndex + 1}/{_randomPlaylist.Count})";
+    }
+
+    private void StopRandomPlay()
+    {
+        IsRandomPlayModeEnabled = false;
+        CurrentlyPlayingVideo = null;
+        CurrentPlayIndex = -1;
+        _randomPlaylist.Clear();
+        StatusText = "ランダム再生を停止しました";
+        _logger.LogInformation("Random play stopped");
     }
 
     private async Task<List<string>> GetScanDirectoriesAsync()
